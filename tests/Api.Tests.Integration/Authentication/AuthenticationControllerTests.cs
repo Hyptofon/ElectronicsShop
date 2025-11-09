@@ -6,7 +6,6 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common;
-using Xunit;
 
 namespace Api.Tests.Integration.Authentication;
 

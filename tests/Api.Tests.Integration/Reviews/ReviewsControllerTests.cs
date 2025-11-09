@@ -16,7 +16,7 @@ namespace Api.Tests.Integration.Reviews;
 public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "reviews";
-    private readonly Category _testCategory = CategoryData.FirstTestCategory();
+    private readonly Category _testCategory = CategoryData.FirstTestCategory("ReviewCtrl");
     private Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private readonly string _otherUserId = Guid.NewGuid().ToString();
@@ -308,9 +308,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        Context.ProductReviews.RemoveRange(Context.ProductReviews);
-        Context.Products.RemoveRange(Context.Products);
-        Context.Categories.RemoveRange(Context.Categories);
-        await SaveChangesAsync();
+        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
+        await CleanupDatabaseAsync();
     }
 }

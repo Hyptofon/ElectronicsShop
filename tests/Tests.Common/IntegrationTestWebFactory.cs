@@ -1,4 +1,4 @@
-﻿using Domain.Users; // Додай цей using для ApplicationRole
+﻿using Domain.Users;
 using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -42,18 +42,39 @@ public class IntegrationTestWebFactory : WebApplicationFactory<Program>, IAsyncL
         {
             builder.ConfigureTestServices(services =>
             {
-                services.AddAuthentication(defaultScheme: "TestScheme")
-                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
-                        "TestScheme", options => 
-                        {
-                            // options.ClaimsIssuer = "TestIssuer"; // Це зазвичай не обов'язково для тестового хендлера
-                        });
-                
+                // Видаляємо попередні реєстрації
+                var authDataDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(TestAuthData));
+                if (authDataDescriptor != null)
+                {
+                    services.Remove(authDataDescriptor);
+                }
+
+                // ВИПРАВЛЕННЯ: Реєструємо TestAuthData як Singleton
                 services.AddSingleton(new TestAuthData 
                 { 
                     Role = role,
                     UserId = userId ?? Guid.NewGuid().ToString()
                 });
+
+                // Видаляємо стандартну автентифікацію
+                var authDescriptors = services
+                    .Where(d => d.ServiceType.FullName?.Contains("Authentication") == true)
+                    .ToList();
+                
+                foreach (var descriptor in authDescriptors)
+                {
+                    services.Remove(descriptor);
+                }
+
+                // ВИПРАВЛЕННЯ: Додаємо тестову схему автентифікації
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = "TestScheme";
+                    options.DefaultChallengeScheme = "TestScheme";
+                    options.DefaultScheme = "TestScheme";
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                    "TestScheme", options => { });
             });
         });
     }
@@ -107,17 +128,15 @@ public class IntegrationTestWebFactory : WebApplicationFactory<Program>, IAsyncL
         var context = provider.GetRequiredService<ApplicationDbContext>();
         await context.Database.MigrateAsync();
 
-        // ВИПРАВЛЕННЯ ТУТ: Використовуємо ApplicationRole замість IdentityRole
         var roleManager = provider.GetRequiredService<RoleManager<ApplicationRole>>();
         
-        string[] roles = { ApplicationRole.User, ApplicationRole.Admin }; 
+        string[] roles = { ApplicationRole.User, ApplicationRole.Admin, ApplicationRole.Manager };
 
         foreach (var role in roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
-                // Створюємо ApplicationRole, а не IdentityRole
-                await roleManager.CreateAsync(new ApplicationRole { Name = role });
+                await roleManager.CreateAsync(new ApplicationRole(role));
             }
         }
     }

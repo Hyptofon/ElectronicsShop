@@ -14,8 +14,8 @@ namespace Api.Tests.Integration.Products;
 
 public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
-    private readonly Category _testCategory = CategoryData.FirstTestCategory();
-    private readonly Category _secondTestCategory = CategoryData.SecondTestCategory();
+    private readonly Category _testCategory = CategoryData.FirstTestCategory("Product");
+    private readonly Category _secondTestCategory = CategoryData.SecondTestCategory("Product");
     private Product _firstTestProduct;
     private Product _secondTestProduct;
 
@@ -140,18 +140,21 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var product = await response.ToResponseModel<ProductDto>();
-        
-        product.Name.Should().Be(request.Name);
-        product.Description.Should().Be(request.Description);
-        product.Price.Should().Be(request.Price);
-        product.StockQuantity.Should().Be(request.StockQuantity);
-        product.Brand.Should().Be(request.Brand);
-        product.Model.Should().Be(request.Model);
+        var productDto = await response.ToResponseModel<ProductDto>();
+    
+        productDto.Name.Should().Be(request.Name);
+        productDto.Description.Should().Be(request.Description);
+        productDto.Price.Should().Be(request.Price);
+        productDto.StockQuantity.Should().Be(request.StockQuantity);
+        productDto.Brand.Should().Be(request.Brand);
+        productDto.Model.Should().Be(request.Model);
 
+        // Використовуємо ProductId для порівняння
+        var productId = new ProductId(productDto.Id);
         var dbProduct = await Context.Products
             .Include(p => p.Categories)
-            .FirstOrDefaultAsync(p => p.Id.Value == product.Id);
+            .FirstOrDefaultAsync(p => p.Id == productId);
+
         dbProduct.Should().NotBeNull();
         dbProduct!.Categories.Should().HaveCount(1);
     }
@@ -504,8 +507,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        Context.Products.RemoveRange(Context.Products);
-        Context.Categories.RemoveRange(Context.Categories);
-        await SaveChangesAsync();
+        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
+        await CleanupDatabaseAsync();
     }
 }

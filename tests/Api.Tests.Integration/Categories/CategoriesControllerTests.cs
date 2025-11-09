@@ -83,14 +83,18 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var category = await response.ToResponseModel<CategoryDto>();
+        var categoryDto = await response.ToResponseModel<CategoryDto>();
         
-        category.Name.Should().Be(request.Name);
-        category.Description.Should().Be(request.Description);
+        categoryDto.Name.Should().Be(request.Name);
+        categoryDto.Description.Should().Be(request.Description);
 
+        // ВИПРАВЛЕННЯ: Використовуємо CategoryId для порівняння
+        var categoryId = new CategoryId(categoryDto.Id);
         var dbCategory = await Context.Categories
-            .FirstOrDefaultAsync(c => c.Id.Value == category.Id);
+            .FirstOrDefaultAsync(c => c.Id == categoryId);
+            
         dbCategory.Should().NotBeNull();
+        dbCategory!.Name.Should().Be(request.Name);
     }
 
     [Fact]
@@ -298,7 +302,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        Context.Categories.RemoveRange(Context.Categories);
-        await SaveChangesAsync();
+        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
+        await CleanupDatabaseAsync();
     }
 }

@@ -15,7 +15,7 @@ namespace Api.Tests.Integration.Reviews;
 
 public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
-    private readonly Category _testCategory = CategoryData.FirstTestCategory();
+    private readonly Category _testCategory = CategoryData.FirstTestCategory("Review");
     private Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private readonly string _otherUserId = Guid.NewGuid().ToString();
@@ -89,16 +89,18 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var review = await response.ToResponseModel<ProductReviewDto>();
+        var reviewDto = await response.ToResponseModel<ProductReviewDto>();
+    
+        reviewDto.ProductId.Should().Be(_testProduct.Id.Value);
+        reviewDto.UserId.Should().Be(Guid.Parse(_testUserId));
+        reviewDto.Rating.Should().Be(request.Rating);
+        reviewDto.Comment.Should().Be(request.Comment);
+        reviewDto.IsModerated.Should().BeFalse();
         
-        review.ProductId.Should().Be(_testProduct.Id.Value);
-        review.UserId.Should().Be(Guid.Parse(_testUserId));
-        review.Rating.Should().Be(request.Rating);
-        review.Comment.Should().Be(request.Comment);
-        review.IsModerated.Should().BeFalse();
-
+        var reviewId = new ProductReviewId(reviewDto.Id);
         var dbReview = await Context.ProductReviews
-            .FirstOrDefaultAsync(r => r.Id.Value == review.Id);
+            .FirstOrDefaultAsync(r => r.Id == reviewId);
+        
         dbReview.Should().NotBeNull();
     }
 
@@ -173,9 +175,7 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        Context.ProductReviews.RemoveRange(Context.ProductReviews);
-        Context.Products.RemoveRange(Context.Products);
-        Context.Categories.RemoveRange(Context.Categories);
-        await SaveChangesAsync();
+        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
+        await CleanupDatabaseAsync();
     }
 }

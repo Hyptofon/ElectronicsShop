@@ -11,21 +11,20 @@ using Tests.Common;
 using Tests.Data.Categories;
 using Tests.Data.Orders;
 using Tests.Data.Products;
-using Xunit;
 
 namespace Api.Tests.Integration.Orders;
 
 public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "orders";
-    private readonly Category _testCategory = CategoryData.FirstTestCategory();
+    private readonly Category _testCategory = CategoryData.FirstTestCategory("Order");
     private Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private readonly string _adminUserId = Guid.NewGuid().ToString();
     private HttpClient _userClient;
     private HttpClient _adminClient;
     private HttpClient _managerClient;
-    private Order _testOrder;
+    private Order _testOrder; // Це поле буде ініціалізовано в InitializeAsync
 
     public OrdersControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
@@ -34,6 +33,8 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
         _managerClient = CreateAuthenticatedClient("Manager");
         
         _testProduct = ProductData.FirstTestProduct(new List<CategoryId> { _testCategory.Id });
+        
+        // _testOrder ініціалізується пізніше в InitializeAsync
     }
 
     #region GET Tests (My Orders)
@@ -341,23 +342,31 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
-
+    
     [Fact]
     public async Task CancelOrder_DeliveredOrder_ShouldReturnBadRequest()
     {
-        // Arrange - створюємо доставлене замовлення
+        // Arrange
+        // Використовуємо новий унікальний ID для створення items, 
+        // щоб уникнути конфліктів з існуючими замовленнями в EF Core.
+        var tempOrderId = OrderId.New(); 
         var orderItems = new List<OrderItem>
         {
-            OrderData.CreateTestOrderItem(_testOrder.Id, _testProduct.Id)
+            OrderData.CreateTestOrderItem(tempOrderId, _testProduct.Id)
         };
+    
+        // Створюємо замовлення. Воно згенерує свій власний фінальний ID.
         var order = OrderData.CreateTestOrder(Guid.Parse(_testUserId), orderItems);
+    
         order.UpdateStatus(OrderStatus.Processing);
         order.UpdateStatus(OrderStatus.Shipped);
         order.UpdateStatus(OrderStatus.Delivered);
+    
         await Context.Orders.AddAsync(order);
         await SaveChangesAsync();
 
         // Act
+        // Використовуємо ID новоствореного замовлення
         var response = await _userClient.PostAsync($"{BaseRoute}/{order.Id.Value}/cancel", null);
 
         // Assert
@@ -557,10 +566,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        Context.Orders.RemoveRange(Context.Orders);
-        Context.Carts.RemoveRange(Context.Carts);
-        Context.Products.RemoveRange(Context.Products);
-        Context.Categories.RemoveRange(Context.Categories);
-        await SaveChangesAsync();
+        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
+        await CleanupDatabaseAsync();
     }
 }

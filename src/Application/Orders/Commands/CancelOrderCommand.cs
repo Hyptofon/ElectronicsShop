@@ -44,6 +44,10 @@ public class CancelOrderCommandHandler(
         {
             return new UnauthorizedOrderAccessException(order.Id);
         }
+        if (order.Status == OrderStatus.Delivered)
+        {
+            return new InvalidOrderStatusTransitionException(order.Id, order.Status, OrderStatus.Cancelled);
+        }
 
         try
         {
@@ -58,9 +62,9 @@ public class CancelOrderCommandHandler(
                     {
                         product.IncreaseStock(item.Quantity);
                         await productRepository.UpdateAsync(product, cancellationToken);
-                        return Unit.Default; // ДОДАНО
+                        return Unit.Default;
                     },
-                    () => Task.FromResult(Unit.Default)); // ВИПРАВЛЕНО
+                    () => Task.FromResult(Unit.Default));
             }
 
             return await orderRepository.UpdateAsync(order, cancellationToken);

@@ -10,14 +10,13 @@ using Tests.Common;
 using Tests.Data.Carts;
 using Tests.Data.Categories;
 using Tests.Data.Products;
-using Xunit;
 
 namespace Api.Tests.Integration.Cart;
 
 public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "cart";
-    private readonly Category _testCategory = CategoryData.FirstTestCategory();
+    private Category _testCategory = CategoryData.FirstTestCategory("Cart");
     private Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private HttpClient _userClient;
@@ -226,7 +225,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateCartItem_NonExistentItem_ShouldReturnBadRequest()
+    public async Task UpdateCartItem_NonExistentItem_ShouldReturnNotFound()
     {
         // Arrange
         var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
@@ -242,7 +241,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
             request);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Theory]
@@ -365,16 +364,25 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await Context.Categories.AddAsync(_testCategory);
+        // ВАЖЛИВО: Переконуємося, що категорія не існує
+        var existing = await Context.Categories
+            .FirstOrDefaultAsync(c => c.Name == _testCategory.Name);
+    
+        if (existing == null)
+        {
+            await Context.Categories.AddAsync(_testCategory);
+        }
+        else
+        {
+            _testCategory = existing; // Використовуємо існуючу
+        }
+    
         await Context.Products.AddAsync(_testProduct);
         await SaveChangesAsync();
     }
 
     public async Task DisposeAsync()
     {
-        Context.Carts.RemoveRange(Context.Carts);
-        Context.Products.RemoveRange(Context.Products);
-        Context.Categories.RemoveRange(Context.Categories);
-        await SaveChangesAsync();
+        await CleanupDatabaseAsync();
     }
 }

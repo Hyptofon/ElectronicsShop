@@ -1,5 +1,6 @@
 ﻿using Application.Common.Interfaces.Queries;
 using Application.Common.Interfaces.Repositories;
+using Domain.Categories;
 using Domain.Products;
 using LanguageExt;
 using Microsoft.EntityFrameworkCore;
@@ -88,7 +89,8 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
 
         if (categoryId.HasValue)
         {
-            query = query.Where(x => x.Categories!.Any(c => c.CategoryId.Value == categoryId.Value));
+            var categoryIdObj = new CategoryId(categoryId.Value);
+            query = query.Where(p => p.Categories.Any(c => c.CategoryId == categoryIdObj));
         }
 
         if (minPrice.HasValue)

@@ -22,6 +22,12 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // ВИПРАВЛЕННЯ: Перевіряємо наявність Authorization header
+        if (!Request.Headers.ContainsKey("Authorization"))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
         var claims = new[] 
         { 
             new Claim(ClaimTypes.NameIdentifier, _authData.UserId),

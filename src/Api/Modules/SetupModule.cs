@@ -14,7 +14,11 @@ public static class SetupModule
 {
     public static void SetupServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddControllers(options => { options.Filters.Add<ValidationFilter>(); });
+        services.AddControllers(options => 
+        { 
+            options.Filters.Add<ValidationFilter>();
+            options.Filters.Add<ValidationExceptionFilter>(); 
+        });
         services.AddCors();
         services.AddRequestValidators();
         services.AddAuthenticationServices(configuration);
