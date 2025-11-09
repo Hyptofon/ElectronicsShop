@@ -1,0 +1,12 @@
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\bin\Debug\net9.0\Domain.deps.json
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\bin\Debug\net9.0\Domain.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\bin\Debug\net9.0\Domain.pdb
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.csproj.AssemblyReference.cache
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.AssemblyInfoInputs.cache
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.AssemblyInfo.cs
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.csproj.CoreCompileInputs.cache
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\refint\Domain.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\Domain.pdb
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Domain\obj\Debug\net9.0\ref\Domain.dll

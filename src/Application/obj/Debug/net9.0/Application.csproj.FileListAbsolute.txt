@@ -1,0 +1,15 @@
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\bin\Debug\net9.0\Application.deps.json
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\bin\Debug\net9.0\Application.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\bin\Debug\net9.0\Application.pdb
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\bin\Debug\net9.0\Domain.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\bin\Debug\net9.0\Domain.pdb
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.csproj.AssemblyReference.cache
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.AssemblyInfoInputs.cache
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.AssemblyInfo.cs
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.csproj.CoreCompileInputs.cache
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Applicat.44B5EDA2.Up2Date
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\refint\Application.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.pdb
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\ref\Application.dll
