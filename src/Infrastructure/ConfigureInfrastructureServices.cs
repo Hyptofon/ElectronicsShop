@@ -12,6 +12,8 @@ public static class ConfigureInfrastructureServices
     {
         services.AddPersistenceServices(configuration);
         services.AddFileStorageServices();
+        
+        services.AddScoped<ApplicationDbContextInitialiser>();
     }
 
     private static void AddFileStorageServices(this IServiceCollection services)

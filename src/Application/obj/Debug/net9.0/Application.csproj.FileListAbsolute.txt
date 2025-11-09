@@ -13,3 +13,4 @@ D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\n
 D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\refint\Application.dll
 D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.pdb
 D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\ref\Application.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\obj\Debug\net9.0\Application.sourcelink.json

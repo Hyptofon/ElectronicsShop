@@ -17,3 +17,4 @@ D:\Rider прожекти\Practicals\ElectronicsShop\src\Infrastructure\obj\Debu
 D:\Rider прожекти\Practicals\ElectronicsShop\src\Infrastructure\obj\Debug\net9.0\Infrastructure.pdb
 D:\Rider прожекти\Practicals\ElectronicsShop\src\Infrastructure\obj\Debug\net9.0\Infrastructure.genruntimeconfig.cache
 D:\Rider прожекти\Practicals\ElectronicsShop\src\Infrastructure\obj\Debug\net9.0\ref\Infrastructure.dll
+D:\Rider прожекти\Practicals\ElectronicsShop\src\Infrastructure\obj\Debug\net9.0\Infrastructure.sourcelink.json
