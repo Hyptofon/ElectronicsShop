@@ -233,6 +233,36 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+    
+    [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseUnauthorized()
+    {
+        // Arrange
+        var request = CategoryData.UpdateTestCategoryDto();
+
+        // Act
+        var response = await Client.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    
+    [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseDuplicateName()
+    {
+        // Arrange: Намагаємося оновити першу категорію, надавши їй ім'я другої
+        var request = new UpdateCategoryDto(_secondTestCategory.Name, "Updated description");
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict); 
+    }
 
     #endregion
 

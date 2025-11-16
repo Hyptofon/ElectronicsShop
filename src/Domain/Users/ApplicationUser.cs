@@ -9,6 +9,8 @@ public class ApplicationUser : IdentityUser<Guid>
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
     public bool IsBlocked { get; private set; }
+    public string? RefreshToken { get; private set; }
+    public DateTime? RefreshTokenExpiryTime { get; private set; }
 
     private ApplicationUser() { }
 
@@ -43,6 +45,20 @@ public class ApplicationUser : IdentityUser<Guid>
     public void Unblock()
     {
         IsBlocked = false;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void SetRefreshToken(string refreshToken, DateTime expiryTime) 
+    {
+        RefreshToken = refreshToken;
+        RefreshTokenExpiryTime = expiryTime;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void RevokeRefreshToken() 
+    {
+        RefreshToken = null;
+        RefreshTokenExpiryTime = null;
         UpdatedAt = DateTime.UtcNow;
     }
 }

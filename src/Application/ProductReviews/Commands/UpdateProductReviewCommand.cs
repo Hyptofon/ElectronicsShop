@@ -39,7 +39,7 @@ public class UpdateProductReviewCommandHandler(
         Guid userId,
         CancellationToken cancellationToken)
     {
-        if (review.UserId != userId && !currentUserService.IsInRole("Admin"))
+        if (review.UserId != userId && !currentUserService.IsInRole("Admin") && !currentUserService.IsInRole("Manager"))
         {
             return new UnauthorizedReviewAccessException(review.Id);
         }

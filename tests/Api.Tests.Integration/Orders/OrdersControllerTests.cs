@@ -368,6 +368,29 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task ShouldCancelAnyOrderAsAdmin()
+    {
+        // Arrange: Використовуємо _testOrder, який належить іншому користувачу (_adminUserId)
+        // АБО, для кращої перевірки:
+        var orderItems = new List<OrderItem>
+        {
+            // Створюємо замовлення, яке не належить Admin
+            OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
+        };
+        var userOrder = OrderData.CreateTestOrder(Guid.Parse(_testUserId), orderItems);
+        await Context.Orders.AddAsync(userOrder);
+        await SaveChangesAsync();
+
+        // Act: Admin Client намагається скасувати замовлення користувача
+        var response = await _adminClient.PostAsync($"{BaseRoute}/{userOrder.Id.Value}/cancel", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var orderDto = await response.ToResponseModel<OrderDto>();
+        orderDto.Status.Should().Be(OrderStatus.Cancelled.ToString());
+    }
+    
     #endregion
 
     #region GET Tests (All Orders)
@@ -539,6 +562,21 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+    
+    [Fact]
+    public async Task ShouldNotUpdateOrderStatusBecauseUnauthorized()
+    {
+        // Arrange
+        var request = OrderData.CreateUpdateOrderStatusDto("Processing");
+
+        // Act
+        var response = await Client.PutAsJsonAsync(
+            $"{BaseRoute}/{_testOrder.Id.Value}/status",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     #endregion

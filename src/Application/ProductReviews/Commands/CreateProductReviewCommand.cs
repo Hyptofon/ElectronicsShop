@@ -1,4 +1,6 @@
-﻿using Application.Common.Interfaces;
+﻿// D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\ProductReviews\Commands\CreateProductReviewCommand.cs
+
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Repositories;
 using Application.ProductReviews.Exceptions;
 using Domain.Products;
@@ -26,10 +28,25 @@ public class CreateProductReviewCommandHandler(
         }
 
         var productId = new ProductId(request.ProductId);
+        var userId = currentUserService.UserId.Value;
+
+        // 1. ПЕРЕВІРКА НА ДУБЛІКАТ: Користувач може залишити лише один відгук на продукт.
+        var existingReview = await reviewRepository.GetByProductAndUserAsync(
+            productId,
+            userId,
+            cancellationToken);
+
+        if (existingReview.IsSome)
+        {
+            // Повертаємо виняток, який повинен бути перехоплений API-шаром і перетворений на 409 Conflict.
+            return new ProductReviewAlreadyExistsException(productId, userId);
+        }
+        
+        // 2. ПЕРЕВІРКА НА ІСНУВАННЯ ПРОДУКТУ
         var product = await productRepository.GetByIdAsync(productId, cancellationToken);
 
         return await product.MatchAsync(
-            p => CreateEntity(request, p.Id, currentUserService.UserId.Value, cancellationToken),
+            p => CreateEntity(request, p.Id, userId, cancellationToken),
             () => Task.FromResult<Either<ProductReviewException, ProductReview>>(
                 new ProductNotFoundForReviewException(productId)));
     }

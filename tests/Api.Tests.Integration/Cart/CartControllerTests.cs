@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
 using Api.Dtos;
-using Domain.Cart;
 using Domain.Categories;
 using Domain.Products;
 using FluentAssertions;
@@ -115,7 +114,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         Context.Carts.Remove(_testCart);
         await SaveChangesAsync();
         
-        var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 1);
+        var request = CartData.CreateAddToCartDto(_testProduct.Id.Value);
 
         // Act
         var response = await _userClient.PostAsJsonAsync($"{BaseRoute}/items", request);
@@ -152,7 +151,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     public async Task ShouldNotAddToCartBecauseProductNotFound()
     {
         // Arrange
-        var request = CartData.CreateAddToCartDto(Guid.NewGuid(), 1);
+        var request = CartData.CreateAddToCartDto(Guid.NewGuid());
 
         // Act
         var response = await _userClient.PostAsJsonAsync($"{BaseRoute}/items", request);
@@ -193,7 +192,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     public async Task ShouldNotAddToCartBecauseUnauthorized()
     {
         // Arrange
-        var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 1);
+        var request = CartData.CreateAddToCartDto(_testProduct.Id.Value);
 
         // Act
         var response = await Client.PostAsJsonAsync($"{BaseRoute}/items", request);
@@ -231,6 +230,57 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
             .AsNoTracking()
             .FirstAsync(c => c.Id == _testCart.Id);
         dbCart.Items.First().Quantity.Should().Be(5);
+    } 
+    
+    [Fact]
+    public async Task ShouldNotUpdateCartItemBecauseItemBelongsToAnotherUser()
+    {
+        // Arrange
+        var anotherUserId = Guid.NewGuid().ToString();
+        var anotherUserClient = CreateAuthenticatedClient("User", anotherUserId);
+        var anotherCart = CartData.CreateTestCart(Guid.Parse(anotherUserId));
+        await Context.Carts.AddAsync(anotherCart);
+        
+        var anotherCartItem = CartData.CreateTestCartItem(anotherCart.Id, _testProduct.Id, 5);
+        anotherCart.AddItem(anotherCartItem);
+        await Context.CartItems.AddAsync(anotherCartItem);
+        await SaveChangesAsync();
+        
+        var request = CartData.CreateUpdateCartItemDto(10); 
+
+        // Act
+        var response = await _userClient.PutAsJsonAsync(
+            $"{BaseRoute}/items/{anotherCartItem.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var dbCartItem = await Context.CartItems.AsNoTracking().FirstAsync(ci => ci.Id == anotherCartItem.Id);
+        dbCartItem.Quantity.Should().Be(5);
+    }
+    
+    [Fact]
+    public async Task ShouldGetMyCartWhenRoleIsManager()
+    {
+        // Arrange
+        var managerUserId = Guid.NewGuid().ToString();
+        var managerClient = CreateAuthenticatedClient("Manager", managerUserId); 
+        
+        var managerCart = CartData.CreateTestCart(Guid.Parse(managerUserId));
+        var cartItem = CartData.CreateTestCartItem(managerCart.Id, _testProduct.Id, 1);
+        managerCart.AddItem(cartItem);
+        
+        await Context.Carts.AddAsync(managerCart);
+        await Context.CartItems.AddAsync(cartItem);
+        await SaveChangesAsync(); 
+        
+        // Act
+        var response = await managerClient.GetAsync(BaseRoute);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var cartDto = await response.ToResponseModel<CartDto>();
+        cartDto.Items.Should().HaveCount(1);
     }
 
     [Fact]
@@ -323,7 +373,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         await Context.Products.AddAsync(product2);
         await SaveChangesAsync();
         
-        var cartItem2 = CartData.CreateTestCartItem(_testCart.Id, product2.Id, 1);
+        var cartItem2 = CartData.CreateTestCartItem(_testCart.Id, product2.Id);
         _testCart.AddItem(cartItem2);
         await SaveChangesAsync();
 

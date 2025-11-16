@@ -1,4 +1,6 @@
-﻿using Application.ProductReviews.Exceptions;
+﻿// D:\Rider прожекти\Practicals\ElectronicsShop\src\Api\Modules\Errors\ProductReviewErrorFactory.cs
+
+using Application.ProductReviews.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Modules.Errors;
@@ -14,6 +16,7 @@ public static class ProductReviewErrorFactory
                 ProductReviewNotFoundException => StatusCodes.Status404NotFound,
                 ProductNotFoundForReviewException => StatusCodes.Status404NotFound,
                 UnauthorizedReviewAccessException => StatusCodes.Status403Forbidden,
+                ProductReviewAlreadyExistsException => StatusCodes.Status409Conflict,
                 UnhandledProductReviewException => StatusCodes.Status500InternalServerError,
                 _ => throw new NotImplementedException("Product review error handler not implemented")
             }

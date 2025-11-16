@@ -13,4 +13,6 @@ public interface IProductReviewRepository
         ProductId productId,
         CancellationToken cancellationToken);
     Task<IReadOnlyList<ProductReview>> GetAllModeratedAsync(CancellationToken cancellationToken);
+    
+    Task<Option<ProductReview>> GetByProductAndUserAsync(ProductId productId, Guid userId, CancellationToken cancellationToken);
 }

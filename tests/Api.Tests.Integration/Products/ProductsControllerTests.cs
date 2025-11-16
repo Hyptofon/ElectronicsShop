@@ -375,7 +375,53 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
             .FirstAsync(p => p.Id == _firstTestProduct.Id);
         dbProduct.Categories.Should().HaveCount(2);
     }
+    
+    [Fact]
+    public async Task ShouldNotUpdateProductBecauseDuplicateName()
+    {
+        // Arrange
+        var request = new UpdateProductDto(
+            _firstTestProduct.Name, 
+            "New Description",
+            999.99m,
+            15,
+            "New Brand",
+            "New Model",
+            new List<Guid> { _testCategory.Id.Value }
+        );
 
+        // Act
+        var response = await _managerClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_secondTestProduct.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotUpdateProductBecauseInvalidPrice()
+    {
+        // Arrange: Намагаємося оновити ціну на 0
+        var request = new UpdateProductDto(
+            "Valid Name",
+            "Valid Description",
+            0m, // <--- Invalid Price
+            10,
+            "Brand",
+            "Model",
+            new List<Guid> { _testCategory.Id.Value }
+        );
+
+        // Act
+        var response = await _managerClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+    
     #endregion
 
     #region DELETE Tests

@@ -29,5 +29,13 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
         builder.Property(x => x.IsBlocked)
             .HasDefaultValue(false)
             .IsRequired();
+        
+        builder.Property(x => x.RefreshToken) 
+            .HasColumnType("varchar(500)")
+            .IsRequired(false);
+            
+        builder.Property(x => x.RefreshTokenExpiryTime) 
+            .HasConversion(new DateTimeUtcConverter())
+            .IsRequired(false);
     }
 }

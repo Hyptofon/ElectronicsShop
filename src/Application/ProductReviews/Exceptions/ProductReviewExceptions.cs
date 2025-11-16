@@ -19,3 +19,7 @@ public class UnauthorizedReviewAccessException(ProductReviewId reviewId)
 
 public class UnhandledProductReviewException(ProductReviewId reviewId, Exception? innerException)
     : ProductReviewException(reviewId, "Unexpected error occurred while processing product review", innerException);
+    
+public class ProductReviewAlreadyExistsException(ProductId productId, Guid userId)
+    : ProductReviewException(ProductReviewId.Empty(), 
+        $"A review already exists for Product ID {productId} and User ID {userId}.");

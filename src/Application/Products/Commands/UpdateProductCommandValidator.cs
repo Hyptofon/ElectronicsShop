@@ -1,16 +1,32 @@
-﻿using FluentValidation;
+﻿// D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\Products\Commands\UpdateProductCommandValidator.cs
+
+using Application.Common.Interfaces.Repositories;
+using FluentValidation;
 
 namespace Application.Products.Commands;
 
 public class UpdateProductCommandValidator : AbstractValidator<UpdateProductCommand>
 {
-    public UpdateProductCommandValidator()
+    private readonly IProductRepository _productRepository; 
+    
+    public UpdateProductCommandValidator(IProductRepository productRepository)
     {
+        _productRepository = productRepository; 
+
         RuleFor(x => x.ProductId).NotEmpty();
 
         RuleFor(x => x.Name)
             .NotEmpty()
-            .MaximumLength(255);
+            .MaximumLength(255)
+            .MustAsync(async (command, name, cancellationToken) =>
+            {
+                var productOption = await _productRepository.GetByNameAsync(name, cancellationToken);
+                return productOption.Match(
+                    existingProduct => existingProduct.Id.Value == command.ProductId,
+                    () => true
+                );
+            })
+            .WithMessage("A product with this name already exists.");
 
         RuleFor(x => x.Description)
             .NotEmpty()

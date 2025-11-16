@@ -140,6 +140,23 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+    
+    [Fact]
+    public async Task ShouldUpdateAnyReviewAsManager()
+    {
+        // Arrange
+        var managerClient = CreateAuthenticatedClient("Manager"); // Створюємо Manager Client
+        var request = ReviewData.UpdateTestReviewDto();
+
+        // Act: Manager оновлює відгук іншого користувача (_otherUserReview)
+        var response = await managerClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_otherUserReview.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        // (Можна додати перевірку в DB, але це вже перевірено в ShouldUpdateReviewAsOwner)
+    }
 
     #endregion
 
@@ -205,7 +222,23 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+    
+    [Fact]
+    public async Task ShouldDeleteAnyReviewAsManager()
+    {
+        // Arrange
+        var managerClient = CreateAuthenticatedClient("Manager");
+    
+        // Act: Manager видаляє відгук іншого користувача (_userReview)
+        var response = await managerClient.DeleteAsync($"{BaseRoute}/{_userReview.Id.Value}");
 
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dbReview = await Context.ProductReviews
+            .FirstOrDefaultAsync(r => r.Id == _userReview.Id);
+        dbReview.Should().BeNull();
+    }
     #endregion
 
     #region GET Tests (Moderated)

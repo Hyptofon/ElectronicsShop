@@ -58,4 +58,15 @@ public class ProductReviewRepository(ApplicationDbContext context) : IProductRev
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
     }
+    
+    public async Task<Option<ProductReview>> GetByProductAndUserAsync(
+        ProductId productId, 
+        Guid userId, 
+        CancellationToken cancellationToken)
+    {
+        var entity = await context.ProductReviews
+            .FirstOrDefaultAsync(r => r.ProductId == productId && r.UserId == userId, cancellationToken);
+    
+        return entity ?? Option<ProductReview>.None;
+    }
 }

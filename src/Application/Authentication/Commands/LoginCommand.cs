@@ -48,7 +48,8 @@ public class LoginCommandHandler(
             var roles = await userManager.GetRolesAsync(user);
             var token = jwtTokenGenerator.GenerateToken(user, roles.ToList());
             var refreshToken = jwtTokenGenerator.GenerateRefreshToken();
-
+            user.SetRefreshToken(refreshToken, DateTime.UtcNow.AddDays(7)); 
+            await userManager.UpdateAsync(user); 
             return new AuthenticationResult
             {
                 Token = token,

@@ -50,4 +50,23 @@ public class AuthenticationController(ISender sender) : ControllerBase
             r => AuthenticationResponseDto.FromResult(r),
             e => e.ToObjectResult());
     }
+    
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    public async Task<ActionResult<AuthenticationResponseDto>> RefreshToken(
+        [FromBody] RefreshTokenDto request, 
+        CancellationToken cancellationToken)
+    {
+        var command = new RefreshTokenCommand
+        {
+            Token = request.Token,
+            RefreshToken = request.RefreshToken
+        };
+
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.Match<ActionResult<AuthenticationResponseDto>>(
+            r => AuthenticationResponseDto.FromResult(r),
+            e => e.ToObjectResult());
+    }
 }

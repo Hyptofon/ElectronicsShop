@@ -17,14 +17,13 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     private string _testUserId;
     private string _otherUserId;
     private HttpClient _userClient;
-    private HttpClient _otherUserClient;
     private readonly HttpClient _adminClient;
     private ApplicationUser _testUser;
-    private ApplicationUser _otherUser;
+    private readonly string _adminUserId = Guid.NewGuid().ToString();
 
     public UsersControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
-        _adminClient = CreateAuthenticatedClient("Admin");
+        _adminClient = CreateAuthenticatedClient("Admin", _adminUserId);
     }
     
     private async Task<(ApplicationUser User, HttpClient Client)> CreateTestUserAndClientAsync(
@@ -105,7 +104,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         var dbUser = await ReloadUserAsync(_testUserId);
         dbUser.Should().NotBeNull();
-        dbUser!.FirstName.Should().Be(request.FirstName);
+        dbUser.FirstName.Should().Be(request.FirstName);
         dbUser.LastName.Should().Be(request.LastName);
     }
 
@@ -139,7 +138,6 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
-
     #endregion
 
     #region GET Tests (All Users)
@@ -235,7 +233,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         var dbUser = await ReloadUserAsync(_otherUserId);
         dbUser.Should().NotBeNull();
-        dbUser!.IsBlocked.Should().BeTrue();
+        dbUser.IsBlocked.Should().BeTrue();
     }
 
     [Fact]
@@ -287,7 +285,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         var dbUser = await ReloadUserAsync(_otherUserId);
         dbUser.Should().NotBeNull();
-        dbUser!.IsBlocked.Should().BeFalse();
+        dbUser.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
@@ -375,15 +373,13 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         var scope = Factory.Services.CreateScope();
         _userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-        var (testUser, userClient) = await CreateTestUserAndClientAsync("Test", ApplicationRole.User);
+        var (testUser, userClient) = await CreateTestUserAndClientAsync("Test");
         _testUser = testUser;
         _testUserId = testUser.Id.ToString();
         _userClient = userClient;
         
-        var (otherUser, otherUserClient) = await CreateTestUserAndClientAsync("Other", ApplicationRole.User);
-        _otherUser = otherUser;
+        var (otherUser, _) = await CreateTestUserAndClientAsync("Other");
         _otherUserId = otherUser.Id.ToString();
-        _otherUserClient = otherUserClient;
     }
 
     public async Task DisposeAsync()

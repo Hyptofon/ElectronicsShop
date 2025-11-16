@@ -34,6 +34,15 @@ public class UpdateCategoryCommandHandler(ICategoryRepository categoryRepository
         UpdateCategoryCommand request,
         CancellationToken cancellationToken)
     {
+        var existingCategoryWithSameName = await categoryRepository
+            .GetByNameAsync(request.Name, cancellationToken);
+
+        if (existingCategoryWithSameName.IsSome 
+            && existingCategoryWithSameName.Map(c => c.Id != category.Id).IfNone(false))
+        {
+            return new CategoryAlreadyExistException(category.Id);
+        }
+        
         try
         {
             category.UpdateDetails(request.Name, request.Description);
