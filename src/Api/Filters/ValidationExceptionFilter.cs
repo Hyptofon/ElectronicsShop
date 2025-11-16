@@ -1,5 +1,4 @@
-﻿// src/Api/Filters/ValidationExceptionFilter.cs
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
