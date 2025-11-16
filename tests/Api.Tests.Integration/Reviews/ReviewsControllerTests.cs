@@ -9,22 +9,22 @@ using Tests.Common;
 using Tests.Data.Categories;
 using Tests.Data.Products;
 using Tests.Data.Reviews;
-using Xunit;
 
 namespace Api.Tests.Integration.Reviews;
 
 public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "reviews";
+    
     private readonly Category _testCategory = CategoryData.FirstTestCategory("ReviewCtrl");
-    private Product _testProduct;
+    private readonly Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private readonly string _otherUserId = Guid.NewGuid().ToString();
-    private HttpClient _userClient;
-    private HttpClient _otherUserClient;
-    private HttpClient _adminClient;
-    private ProductReview _userReview;
-    private ProductReview _otherUserReview;
+    private readonly HttpClient _userClient;
+    private readonly HttpClient _otherUserClient;
+    private readonly HttpClient _adminClient;
+    private readonly ProductReview _userReview;
+    private readonly ProductReview _otherUserReview;
 
     public ReviewsControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
@@ -37,10 +37,10 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         _otherUserReview = ReviewData.CreateTestReview(_testProduct.Id, Guid.Parse(_otherUserId));
     }
 
-    #region PUT Tests (Update Review)
+    #region PUT Tests
 
     [Fact]
-    public async Task UpdateReview_AsOwner_ShouldUpdateReview()
+    public async Task ShouldUpdateReviewAsOwner()
     {
         // Arrange
         var request = ReviewData.UpdateTestReviewDto();
@@ -65,7 +65,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateReview_AsAdmin_ShouldUpdateAnyReview()
+    public async Task ShouldUpdateAnyReviewAsAdmin()
     {
         // Arrange
         var request = ReviewData.UpdateTestReviewDto();
@@ -80,7 +80,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateReview_AsNonOwner_ShouldReturnForbidden()
+    public async Task ShouldNotUpdateReviewBecauseNotOwner()
     {
         // Arrange
         var request = ReviewData.UpdateTestReviewDto();
@@ -95,7 +95,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateReview_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotUpdateReviewBecauseUnauthorized()
     {
         // Arrange
         var request = ReviewData.UpdateTestReviewDto();
@@ -110,7 +110,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateReview_NonExistentReview_ShouldReturnNotFound()
+    public async Task ShouldNotUpdateReviewBecauseReviewNotFound()
     {
         // Arrange
         var request = ReviewData.UpdateTestReviewDto();
@@ -124,10 +124,10 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(0, "Valid comment")] // Invalid rating
-    [InlineData(6, "Valid comment")] // Invalid rating
-    [InlineData(5, "")] // Empty comment
-    public async Task UpdateReview_WithInvalidData_ShouldReturnBadRequest(int rating, string comment)
+    [InlineData(0, "Valid comment")]
+    [InlineData(6, "Valid comment")]
+    [InlineData(5, "")]
+    public async Task ShouldNotUpdateReviewBecauseInvalidData(int rating, string comment)
     {
         // Arrange
         var request = new UpdateProductReviewDto(rating, comment);
@@ -146,7 +146,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region DELETE Tests
 
     [Fact]
-    public async Task DeleteReview_AsOwner_ShouldDeleteReview()
+    public async Task ShouldDeleteReviewAsOwner()
     {
         // Act
         var response = await _userClient.DeleteAsync($"{BaseRoute}/{_userReview.Id.Value}");
@@ -160,7 +160,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task DeleteReview_AsAdmin_ShouldDeleteAnyReview()
+    public async Task ShouldDeleteAnyReviewAsAdmin()
     {
         // Act
         var response = await _adminClient.DeleteAsync($"{BaseRoute}/{_otherUserReview.Id.Value}");
@@ -174,7 +174,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task DeleteReview_AsNonOwner_ShouldReturnForbidden()
+    public async Task ShouldNotDeleteReviewBecauseNotOwner()
     {
         // Act
         var response = await _otherUserClient.DeleteAsync($"{BaseRoute}/{_userReview.Id.Value}");
@@ -184,7 +184,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task DeleteReview_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotDeleteReviewBecauseUnauthorized()
     {
         // Act
         var response = await Client.DeleteAsync($"{BaseRoute}/{_userReview.Id.Value}");
@@ -194,7 +194,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task DeleteReview_NonExistentReview_ShouldReturnNotFound()
+    public async Task ShouldNotDeleteReviewBecauseReviewNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -208,12 +208,12 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region GET Tests (Moderated Reviews)
+    #region GET Tests (Moderated)
 
     [Fact]
-    public async Task GetModeratedReviews_AsAdmin_ShouldReturnModeratedReviews()
+    public async Task ShouldGetModeratedReviewsAsAdmin()
     {
-        // Arrange - модеруємо один відгук
+        // Arrange
         _userReview.Moderate();
         Context.ProductReviews.Update(_userReview);
         await SaveChangesAsync();
@@ -229,7 +229,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetModeratedReviews_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotGetModeratedReviewsBecauseForbidden()
     {
         // Act
         var response = await _userClient.GetAsync($"{BaseRoute}/moderated");
@@ -239,7 +239,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetModeratedReviews_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotGetModeratedReviewsBecauseUnauthorized()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/moderated");
@@ -250,10 +250,10 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region POST Tests (Moderate Review)
+    #region POST Tests (Moderate)
 
     [Fact]
-    public async Task ModerateReview_AsAdmin_ShouldModerateReview()
+    public async Task ShouldModerateReviewAsAdmin()
     {
         // Act
         var response = await _adminClient.PostAsync(
@@ -272,7 +272,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task ModerateReview_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotModerateReviewBecauseForbidden()
     {
         // Act
         var response = await _userClient.PostAsync(
@@ -284,7 +284,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task ModerateReview_NonExistentReview_ShouldReturnNotFound()
+    public async Task ShouldNotModerateReviewBecauseReviewNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -308,7 +308,10 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
-        await CleanupDatabaseAsync();
+        Context.ProductReviews.RemoveRange(Context.ProductReviews);
+        Context.Products.RemoveRange(Context.Products);
+        Context.Categories.RemoveRange(Context.Categories);
+        
+        await SaveChangesAsync();
     }
 }

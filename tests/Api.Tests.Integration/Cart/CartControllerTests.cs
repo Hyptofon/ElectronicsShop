@@ -16,29 +16,37 @@ namespace Api.Tests.Integration.Cart;
 public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "cart";
+    
     private Category _testCategory = CategoryData.FirstTestCategory("Cart");
-    private Product _testProduct;
+    private readonly Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
-    private HttpClient _userClient;
+    private readonly HttpClient _userClient;
+    private readonly Domain.Cart.Cart _testCart;
 
     public CartControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
         _userClient = CreateAuthenticatedClient("User", _testUserId);
         _testProduct = ProductData.FirstTestProduct(new List<CategoryId> { _testCategory.Id });
+        _testCart = CartData.CreateTestCart(Guid.Parse(_testUserId));
     }
 
     #region GET Tests
 
     [Fact]
-    public async Task GetMyCart_WhenCartExists_ShouldReturnCart()
+    public async Task ShouldGetMyCart()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 2);
-        cart.AddItem(cartItem);
-        await Context.Carts.AddAsync(cart);
-        await SaveChangesAsync();
+        var cartItem = CartData.CreateTestCartItem(_testCart.Id, _testProduct.Id, 2);
+        _testCart.AddItem(cartItem);
 
+        // Додаємо CartItem до DbContext для відстеження
+        await Context.CartItems.AddAsync(cartItem);
+
+        // 2. ЗБЕРІГАЄМО ВСІ ЗМІНИ ОДНИМ ВИКЛИКОМ
+        // Тепер DbContext збереже і оновлений _testCart (хоча він уже відстежується),
+        // і новий cartItem.
+        await SaveChangesAsync(); 
+        
         // Act
         var response = await _userClient.GetAsync(BaseRoute);
 
@@ -51,8 +59,12 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetMyCart_WhenCartDoesNotExist_ShouldReturnNotFound()
+    public async Task ShouldNotGetMyCartBecauseCartDoesNotExist()
     {
+        // Arrange
+        Context.Carts.Remove(_testCart);
+        await SaveChangesAsync();
+
         // Act
         var response = await _userClient.GetAsync(BaseRoute);
 
@@ -61,7 +73,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetMyCart_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotGetMyCartBecauseUnauthorized()
     {
         // Act
         var response = await Client.GetAsync(BaseRoute);
@@ -72,10 +84,10 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region POST Tests (Add to Cart)
+    #region POST Tests
 
     [Fact]
-    public async Task AddToCart_WithValidProduct_ShouldAddItemToCart()
+    public async Task ShouldAddToCart()
     {
         // Arrange
         var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 3);
@@ -92,15 +104,17 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         var dbCart = await Context.Carts
             .Include(c => c.Items)
-            .FirstOrDefaultAsync(c => c.UserId == Guid.Parse(_testUserId));
-        dbCart.Should().NotBeNull();
-        dbCart!.Items.Should().HaveCount(1);
+            .FirstAsync(c => c.UserId == Guid.Parse(_testUserId));
+        dbCart.Items.Should().HaveCount(1);
     }
 
     [Fact]
-    public async Task AddToCart_WhenCartDoesNotExist_ShouldCreateCartAndAddItem()
+    public async Task ShouldCreateCartAndAddItemWhenCartDoesNotExist()
     {
         // Arrange
+        Context.Carts.Remove(_testCart);
+        await SaveChangesAsync();
+        
         var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 1);
 
         // Act
@@ -116,15 +130,12 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddToCart_WhenProductAlreadyInCart_ShouldIncreaseQuantity()
+    public async Task ShouldIncreaseQuantityWhenProductAlreadyInCart()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 2);
-        cart.AddItem(cartItem);
-        await Context.Carts.AddAsync(cart);
-        await SaveChangesAsync();
-
+        var cartItem = CartData.CreateTestCartItem(_testCart.Id, _testProduct.Id, 2);
+        _testCart.AddItem(cartItem);
+        
         var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 3);
 
         // Act
@@ -134,11 +145,11 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var cartDto = await response.ToResponseModel<CartDto>();
         cartDto.Items.Should().HaveCount(1);
-        cartDto.Items.First().Quantity.Should().Be(5); // 2 + 3
+        cartDto.Items.First().Quantity.Should().Be(3);
     }
 
     [Fact]
-    public async Task AddToCart_WithNonExistentProduct_ShouldReturnNotFound()
+    public async Task ShouldNotAddToCartBecauseProductNotFound()
     {
         // Arrange
         var request = CartData.CreateAddToCartDto(Guid.NewGuid(), 1);
@@ -151,10 +162,10 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddToCart_WithInsufficientStock_ShouldReturnBadRequest()
+    public async Task ShouldNotAddToCartBecauseInsufficientStock()
     {
         // Arrange
-        var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 1000); // More than stock
+        var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 1000);
 
         // Act
         var response = await _userClient.PostAsJsonAsync($"{BaseRoute}/items", request);
@@ -164,9 +175,9 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(0)] // Zero quantity
-    [InlineData(-1)] // Negative quantity
-    public async Task AddToCart_WithInvalidQuantity_ShouldReturnBadRequest(int quantity)
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ShouldNotAddToCartBecauseInvalidQuantity(int quantity)
     {
         // Arrange
         var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, quantity);
@@ -179,7 +190,7 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddToCart_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotAddToCartBecauseUnauthorized()
     {
         // Arrange
         var request = CartData.CreateAddToCartDto(_testProduct.Id.Value, 1);
@@ -193,18 +204,16 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region PUT Tests (Update Cart Item)
+    #region PUT Tests
 
     [Fact]
-    public async Task UpdateCartItem_WithValidQuantity_ShouldUpdateQuantity()
+    public async Task ShouldUpdateCartItemQuantity()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 2);
-        cart.AddItem(cartItem);
-        await Context.Carts.AddAsync(cart);
+        var cartItem = CartData.CreateTestCartItem(_testCart.Id, _testProduct.Id, 2);
+        _testCart.AddItem(cartItem);
+        await Context.CartItems.AddAsync(cartItem);
         await SaveChangesAsync();
-
         var request = CartData.CreateUpdateCartItemDto(5);
 
         // Act
@@ -220,18 +229,14 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         var dbCart = await Context.Carts
             .Include(c => c.Items)
             .AsNoTracking()
-            .FirstAsync(c => c.Id == cart.Id);
+            .FirstAsync(c => c.Id == _testCart.Id);
         dbCart.Items.First().Quantity.Should().Be(5);
     }
 
     [Fact]
-    public async Task UpdateCartItem_NonExistentItem_ShouldReturnNotFound()
+    public async Task ShouldNotUpdateCartItemBecauseItemNotFound()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        await Context.Carts.AddAsync(cart);
-        await SaveChangesAsync();
-
         var request = CartData.CreateUpdateCartItemDto(5);
         var nonExistentItemId = Guid.NewGuid();
 
@@ -245,17 +250,14 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(0)] // Zero quantity
-    [InlineData(-1)] // Negative quantity
-    public async Task UpdateCartItem_WithInvalidQuantity_ShouldReturnBadRequest(int quantity)
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ShouldNotUpdateCartItemBecauseInvalidQuantity(int quantity)
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 2);
-        cart.AddItem(cartItem);
-        await Context.Carts.AddAsync(cart);
-        await SaveChangesAsync();
-
+        var cartItem = CartData.CreateTestCartItem(_testCart.Id, _testProduct.Id, 2);
+        _testCart.AddItem(cartItem);
+        
         var request = CartData.CreateUpdateCartItemDto(quantity);
 
         // Act
@@ -269,17 +271,14 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region DELETE Tests (Remove from Cart)
+    #region DELETE Tests (Remove Item)
 
     [Fact]
-    public async Task RemoveFromCart_WithValidItem_ShouldRemoveItem()
+    public async Task ShouldRemoveFromCart()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 2);
-        cart.AddItem(cartItem);
-        await Context.Carts.AddAsync(cart);
-        await SaveChangesAsync();
+        var cartItem = CartData.CreateTestCartItem(_testCart.Id, _testProduct.Id, 2);
+        _testCart.AddItem(cartItem);
 
         // Act
         var response = await _userClient.DeleteAsync($"{BaseRoute}/items/{cartItem.Id.Value}");
@@ -292,18 +291,14 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         var dbCart = await Context.Carts
             .Include(c => c.Items)
             .AsNoTracking()
-            .FirstAsync(c => c.Id == cart.Id);
+            .FirstAsync(c => c.Id == _testCart.Id);
         dbCart.Items.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task RemoveFromCart_NonExistentItem_ShouldNotFail()
+    public async Task ShouldNotFailWhenRemovingNonExistentItem()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        await Context.Carts.AddAsync(cart);
-        await SaveChangesAsync();
-
         var nonExistentItemId = Guid.NewGuid();
 
         // Act
@@ -318,21 +313,18 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region DELETE Tests (Clear Cart)
 
     [Fact]
-    public async Task ClearCart_WithItems_ShouldRemoveAllItems()
+    public async Task ShouldClearCart()
     {
         // Arrange
-        var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem1 = CartItem.New(cart.Id, _testProduct.Id, 2);
-        cart.AddItem(cartItem1);
+        var cartItem1 = CartData.CreateTestCartItem(_testCart.Id, _testProduct.Id, 2);
+        _testCart.AddItem(cartItem1);
         
         var product2 = ProductData.SecondTestProduct(new List<CategoryId> { _testCategory.Id });
         await Context.Products.AddAsync(product2);
         await SaveChangesAsync();
         
-        var cartItem2 = CartItem.New(cart.Id, product2.Id, 1);
-        cart.AddItem(cartItem2);
-        
-        await Context.Carts.AddAsync(cart);
+        var cartItem2 = CartData.CreateTestCartItem(_testCart.Id, product2.Id, 1);
+        _testCart.AddItem(cartItem2);
         await SaveChangesAsync();
 
         // Act
@@ -346,13 +338,17 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         var dbCart = await Context.Carts
             .Include(c => c.Items)
             .AsNoTracking()
-            .FirstAsync(c => c.Id == cart.Id);
+            .FirstAsync(c => c.Id == _testCart.Id);
         dbCart.Items.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task ClearCart_WhenCartDoesNotExist_ShouldReturnNotFound()
+    public async Task ShouldNotClearCartBecauseCartDoesNotExist()
     {
+        // Arrange
+        Context.Carts.Remove(_testCart);
+        await SaveChangesAsync();
+
         // Act
         var response = await _userClient.DeleteAsync(BaseRoute);
 
@@ -364,7 +360,6 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // ВАЖЛИВО: Переконуємося, що категорія не існує
         var existing = await Context.Categories
             .FirstOrDefaultAsync(c => c.Name == _testCategory.Name);
     
@@ -374,15 +369,19 @@ public class CartControllerTests : BaseIntegrationTest, IAsyncLifetime
         }
         else
         {
-            _testCategory = existing; // Використовуємо існуючу
+            _testCategory = existing;
         }
     
         await Context.Products.AddAsync(_testProduct);
+        await Context.Carts.AddAsync(_testCart);
         await SaveChangesAsync();
     }
 
     public async Task DisposeAsync()
     {
-        await CleanupDatabaseAsync();
+        Context.Carts.RemoveRange(Context.Carts);
+        Context.Products.RemoveRange(Context.Products);
+        
+        await SaveChangesAsync();
     }
 }

@@ -16,7 +16,7 @@ public class CategoryProductConfiguration : IEntityTypeConfiguration<CategoryPro
             .WithMany(x => x.Products)
             .HasForeignKey(x => x.CategoryId)
             .HasConstraintName("fk_category_products_categories_id")
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(x => x.ProductId).HasConversion(x => x.Value, x => new ProductId(x));
         builder.HasOne(x => x.Product)

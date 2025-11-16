@@ -6,84 +6,60 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common;
-using Xunit;
 
 namespace Api.Tests.Integration.Users;
 
 public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "users";
-    private UserManager<ApplicationUser> _userManager;
-    // ВИДАЛЯЄМО: жорстко задані ID
-    // private readonly string _testUserId = Guid.NewGuid().ToString();
-    // private readonly string _otherUserId = Guid.NewGuid().ToString();
     
-    // ДОДАЄМО: поля для зберігання ID після створення
+    private UserManager<ApplicationUser> _userManager; 
     private string _testUserId;
     private string _otherUserId;
-    
     private HttpClient _userClient;
     private HttpClient _otherUserClient;
-    private HttpClient _adminClient;
+    private readonly HttpClient _adminClient;
     private ApplicationUser _testUser;
     private ApplicationUser _otherUser;
+
+    public UsersControllerTests(IntegrationTestWebFactory factory) : base(factory)
+    {
+        _adminClient = CreateAuthenticatedClient("Admin");
+    }
+    
+    private async Task<(ApplicationUser User, HttpClient Client)> CreateTestUserAndClientAsync(
+        string firstNamePrefix, string role = ApplicationRole.User, string password = "Test@123")
+    {
+        var user = ApplicationUser.Create(
+            $"{firstNamePrefix.ToLower()}_{Guid.NewGuid()}@test.com",
+            firstNamePrefix,
+            "User",
+            $"{firstNamePrefix.ToLower()}_{Guid.NewGuid()}"
+        );
+
+        // 2. Збереження у БД через UserManager
+        await _userManager.CreateAsync(user, password);
+        
+        // 3. Присвоєння ролі
+        await _userManager.AddToRoleAsync(user, role);
+
+        // 4. Створення автентифікованого клієнта
+        var client = CreateAuthenticatedClient(role, user.Id.ToString());
+
+        return (user, client);
+    }
+
     private async Task<ApplicationUser?> ReloadUserAsync(string userId)
     {
-        // Створюємо новий scope для отримання свіжих даних з БД
         using var scope = Factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         return await userManager.FindByIdAsync(userId);
-    }
-    public UsersControllerTests(IntegrationTestWebFactory factory) : base(factory)
-    {
-        // Ініціалізацію клієнтів переносимо в InitializeAsync, 
-        // бо нам потрібні справжні ID користувачів
-    }
-
-    public async Task InitializeAsync()
-    {
-        // 1. Ініціалізуємо UserManager
-        var scope = Factory.Services.CreateScope();
-        _userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
-        // 2. Створюємо тестових користувачів БЕЗ примусового встановлення ID
-        _testUser = ApplicationUser.Create(
-            $"testuser_{Guid.NewGuid()}@test.com", // Унікальний email
-            "Test",
-            "User",
-            $"testuser_{Guid.NewGuid()}" // Унікальний username
-        );
-        
-        await _userManager.CreateAsync(_testUser, "Test@123");
-        await _userManager.AddToRoleAsync(_testUser, ApplicationRole.User);
-        _testUserId = _testUser.Id.ToString(); // Зберігаємо справжній ID
-
-        _otherUser = ApplicationUser.Create(
-            $"otheruser_{Guid.NewGuid()}@test.com",
-            "Other",
-            "User",
-            $"otheruser_{Guid.NewGuid()}"
-        );
-        
-        await _userManager.CreateAsync(_otherUser, "Test@123");
-        await _userManager.AddToRoleAsync(_otherUser, ApplicationRole.User);
-        _otherUserId = _otherUser.Id.ToString(); // Зберігаємо справжній ID
-
-        // 3. Тепер ініціалізуємо клієнтів з правильними ID
-        _userClient = CreateAuthenticatedClient("User", _testUserId);
-        _otherUserClient = CreateAuthenticatedClient("User", _otherUserId);
-        _adminClient = CreateAuthenticatedClient("Admin");
-    }
-
-    public async Task DisposeAsync()
-    {
-        await CleanupDatabaseAsync();
     }
 
     #region GET Tests (Profile)
 
     [Fact]
-    public async Task GetMyProfile_AsUser_ShouldReturnOwnProfile()
+    public async Task ShouldGetMyProfileAsUser()
     {
         // Act
         var response = await _userClient.GetAsync($"{BaseRoute}/profile");
@@ -99,7 +75,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetMyProfile_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotGetMyProfileBecauseUnauthorized()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/profile");
@@ -113,7 +89,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region PUT Tests (Update Profile)
 
     [Fact]
-    public async Task UpdateProfile_AsUser_ShouldUpdateOwnProfile()
+    public async Task ShouldUpdateMyProfileAsUser()
     {
         // Arrange
         var request = new UpdateUserProfileDto("Updated", "Name");
@@ -127,7 +103,6 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         userDto.FirstName.Should().Be(request.FirstName);
         userDto.LastName.Should().Be(request.LastName);
 
-        // ВИПРАВЛЕННЯ: Перезавантажуємо користувача
         var dbUser = await ReloadUserAsync(_testUserId);
         dbUser.Should().NotBeNull();
         dbUser!.FirstName.Should().Be(request.FirstName);
@@ -135,11 +110,11 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("", "LastName")] // Empty first name
-    [InlineData("FirstName", "")] // Empty last name
-    [InlineData(null, "LastName")] // Null first name
-    [InlineData("FirstName", null)] // Null last name
-    public async Task UpdateProfile_WithInvalidData_ShouldReturnBadRequest(
+    [InlineData("", "LastName")]
+    [InlineData("FirstName", "")]
+    [InlineData(null, "LastName")]
+    [InlineData("FirstName", null)]
+    public async Task ShouldNotUpdateProfileBecauseInvalidData(
         string firstName, string lastName)
     {
         // Arrange
@@ -153,7 +128,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateProfile_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotUpdateProfileBecauseUnauthorized()
     {
         // Arrange
         var request = new UpdateUserProfileDto("Updated", "Name");
@@ -167,10 +142,10 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region GET Tests (All Users - Admin)
+    #region GET Tests (All Users)
 
     [Fact]
-    public async Task GetAll_AsAdmin_ShouldReturnAllUsers()
+    public async Task ShouldGetAllUsersAsAdmin()
     {
         // Act
         var response = await _adminClient.GetAsync(BaseRoute);
@@ -185,7 +160,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAll_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotGetAllUsersBecauseForbidden()
     {
         // Act
         var response = await _userClient.GetAsync(BaseRoute);
@@ -195,7 +170,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAll_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotGetAllUsersBecauseUnauthorized()
     {
         // Act
         var response = await Client.GetAsync(BaseRoute);
@@ -206,10 +181,10 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region GET Tests (Get by Id - Admin)
+    #region GET Tests (Get by Id)
 
     [Fact]
-    public async Task GetById_AsAdmin_ShouldReturnUser()
+    public async Task ShouldGetUserByIdAsAdmin()
     {
         // Act
         var response = await _adminClient.GetAsync($"{BaseRoute}/{_testUserId}");
@@ -221,7 +196,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotGetUserByIdBecauseForbidden()
     {
         // Act
         var response = await _userClient.GetAsync($"{BaseRoute}/{_otherUserId}");
@@ -231,7 +206,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_NonExistentUser_ShouldReturnNotFound()
+    public async Task ShouldNotGetUserByIdBecauseUserNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -248,7 +223,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region POST Tests (Block User)
 
     [Fact]
-    public async Task BlockUser_AsAdmin_ShouldBlockUser()
+    public async Task ShouldBlockUserAsAdmin()
     {
         // Act
         var response = await _adminClient.PostAsync($"{BaseRoute}/{_otherUserId}/block", null);
@@ -258,14 +233,13 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         var userDto = await response.ToResponseModel<UserDto>();
         userDto.IsBlocked.Should().BeTrue();
 
-        // ВИПРАВЛЕННЯ: Перезавантажуємо користувача через новий scope
         var dbUser = await ReloadUserAsync(_otherUserId);
         dbUser.Should().NotBeNull();
         dbUser!.IsBlocked.Should().BeTrue();
     }
 
     [Fact]
-    public async Task BlockUser_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotBlockUserBecauseForbidden()
     {
         // Act
         var response = await _userClient.PostAsync($"{BaseRoute}/{_otherUserId}/block", null);
@@ -275,7 +249,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task BlockUser_NonExistentUser_ShouldReturnNotFound()
+    public async Task ShouldNotBlockUserBecauseUserNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -292,13 +266,9 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region POST Tests (Unblock User)
 
     [Fact]
-    public async Task UnblockUser_AsAdmin_ShouldUnblockUser()
+    public async Task ShouldUnblockUserAsAdmin()
     {
         // Arrange
-        // Тут теж варто використати окремий scope для початкового налаштування,
-        // щоб основний _userManager не кешував цей стан, але для Arrange це менш критично,
-        // якщо ми потім все одно перезавантажимо.
-        // Для надійності зробимо так:
         using (var scope = Factory.Services.CreateScope())
         {
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -315,14 +285,13 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         var userDto = await response.ToResponseModel<UserDto>();
         userDto.IsBlocked.Should().BeFalse();
 
-        // ВИПРАВЛЕННЯ: Перезавантажуємо користувача
         var dbUser = await ReloadUserAsync(_otherUserId);
         dbUser.Should().NotBeNull();
         dbUser!.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
-    public async Task UnblockUser_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotUnblockUserBecauseForbidden()
     {
         // Act
         var response = await _userClient.PostAsync($"{BaseRoute}/{_otherUserId}/unblock", null);
@@ -336,7 +305,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region PUT Tests (Change Role)
 
     [Fact]
-    public async Task ChangeUserRole_AsAdmin_ShouldChangeRole()
+    public async Task ShouldChangeUserRoleAsAdmin()
     {
         // Arrange
         var request = new ChangeUserRoleDto(ApplicationRole.Manager);
@@ -349,7 +318,6 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Отримуємо оновленого користувача з бази
         var updatedUser = await _userManager.FindByIdAsync(_otherUserId);
         var roles = await _userManager.GetRolesAsync(updatedUser!);
         roles.Should().Contain(ApplicationRole.Manager);
@@ -357,7 +325,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task ChangeUserRole_WithInvalidRole_ShouldReturnBadRequest()
+    public async Task ShouldNotChangeUserRoleBecauseInvalidRole()
     {
         // Arrange
         var request = new ChangeUserRoleDto("InvalidRole");
@@ -372,7 +340,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task ChangeUserRole_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotChangeUserRoleBecauseForbidden()
     {
         // Arrange
         var request = new ChangeUserRoleDto(ApplicationRole.Admin);
@@ -387,7 +355,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task ChangeUserRole_NonExistentUser_ShouldReturnNotFound()
+    public async Task ShouldNotChangeUserRoleBecauseUserNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -401,4 +369,25 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     #endregion
+    
+    public async Task InitializeAsync()
+    {
+        var scope = Factory.Services.CreateScope();
+        _userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var (testUser, userClient) = await CreateTestUserAndClientAsync("Test", ApplicationRole.User);
+        _testUser = testUser;
+        _testUserId = testUser.Id.ToString();
+        _userClient = userClient;
+        
+        var (otherUser, otherUserClient) = await CreateTestUserAndClientAsync("Other", ApplicationRole.User);
+        _otherUser = otherUser;
+        _otherUserId = otherUser.Id.ToString();
+        _otherUserClient = otherUserClient;
+    }
+
+    public async Task DisposeAsync()
+    {
+        await CleanupDatabaseAsync(); 
+    }
 }

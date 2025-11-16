@@ -6,18 +6,17 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Tests.Common;
 using Tests.Data.Categories;
-using Xunit;
 
 namespace Api.Tests.Integration.Categories;
 
 public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
+    private const string BaseRoute = "categories";
+    
     private readonly Category _firstTestCategory = CategoryData.FirstTestCategory();
     private readonly Category _secondTestCategory = CategoryData.SecondTestCategory();
-
-    private const string BaseRoute = "categories";
-    private HttpClient _adminClient;
-    private HttpClient _managerClient;
+    private readonly HttpClient _adminClient;
+    private readonly HttpClient _managerClient;
 
     public CategoriesControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
@@ -28,7 +27,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region GET Tests
 
     [Fact]
-    public async Task GetAll_WithoutAuth_ShouldReturnAllCategories()
+    public async Task ShouldGetAllCategoriesWithoutAuth()
     {
         // Act
         var response = await Client.GetAsync(BaseRoute);
@@ -42,7 +41,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_WithoutAuth_ShouldReturnCategory()
+    public async Task ShouldGetCategoryByIdWithoutAuth()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/{_firstTestCategory.Id.Value}");
@@ -56,7 +55,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_WithNonExistentId_ShouldReturnNotFound()
+    public async Task ShouldNotGetCategoryByIdBecauseCategoryNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -70,10 +69,10 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region POST Tests (Create)
+    #region POST Tests
 
     [Fact]
-    public async Task Create_AsAdmin_ShouldCreateCategory()
+    public async Task ShouldCreateCategoryAsAdmin()
     {
         // Arrange
         var request = CategoryData.CreateTestCategoryDto();
@@ -88,7 +87,6 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         categoryDto.Name.Should().Be(request.Name);
         categoryDto.Description.Should().Be(request.Description);
 
-        // ВИПРАВЛЕННЯ: Використовуємо CategoryId для порівняння
         var categoryId = new CategoryId(categoryDto.Id);
         var dbCategory = await Context.Categories
             .FirstOrDefaultAsync(c => c.Id == categoryId);
@@ -98,7 +96,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_AsManager_ShouldCreateCategory()
+    public async Task ShouldCreateCategoryAsManager()
     {
         // Arrange
         var request = CategoryData.CreateTestCategoryDto();
@@ -111,7 +109,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotCreateCategoryBecauseForbidden()
     {
         // Arrange
         var request = CategoryData.CreateTestCategoryDto();
@@ -124,7 +122,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotCreateCategoryBecauseUnauthorized()
     {
         // Arrange
         var request = CategoryData.CreateTestCategoryDto();
@@ -137,7 +135,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_WithDuplicateName_ShouldReturnConflict()
+    public async Task ShouldNotCreateCategoryBecauseDuplicateName()
     {
         // Arrange
         var request = new CreateCategoryDto(_firstTestCategory.Name, "Duplicate category");
@@ -150,9 +148,9 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("", "Valid description")] // Empty name
-    [InlineData(null, "Valid description")] // Null name
-    public async Task Create_WithInvalidData_ShouldReturnBadRequest(string name, string description)
+    [InlineData("", "Valid description")]
+    [InlineData(null, "Valid description")]
+    public async Task ShouldNotCreateCategoryBecauseInvalidData(string name, string description)
     {
         // Arrange
         var request = new CreateCategoryDto(name, description);
@@ -166,10 +164,10 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region PUT Tests (Update)
+    #region PUT Tests
 
     [Fact]
-    public async Task Update_AsAdmin_ShouldUpdateCategory()
+    public async Task ShouldUpdateCategoryAsAdmin()
     {
         // Arrange
         var request = CategoryData.UpdateTestCategoryDto();
@@ -193,7 +191,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_AsManager_ShouldUpdateCategory()
+    public async Task ShouldUpdateCategoryAsManager()
     {
         // Arrange
         var request = CategoryData.UpdateTestCategoryDto();
@@ -208,7 +206,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotUpdateCategoryBecauseForbidden()
     {
         // Arrange
         var request = CategoryData.UpdateTestCategoryDto();
@@ -223,7 +221,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_NonExistentCategory_ShouldReturnNotFound()
+    public async Task ShouldNotUpdateCategoryBecauseCategoryNotFound()
     {
         // Arrange
         var request = CategoryData.UpdateTestCategoryDto();
@@ -241,7 +239,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region DELETE Tests
 
     [Fact]
-    public async Task Delete_AsAdmin_ShouldDeleteCategory()
+    public async Task ShouldDeleteCategoryAsAdmin()
     {
         // Act
         var response = await _adminClient.DeleteAsync($"{BaseRoute}/{_secondTestCategory.Id.Value}");
@@ -255,7 +253,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Delete_AsManager_ShouldDeleteCategory()
+    public async Task ShouldDeleteCategoryAsManager()
     {
         // Arrange
         var tempCategory = Category.New(CategoryId.New(), "Temp Category", "Temp");
@@ -270,7 +268,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Delete_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotDeleteCategoryBecauseForbidden()
     {
         // Act
         var response = await AuthenticatedClient.DeleteAsync($"{BaseRoute}/{_firstTestCategory.Id.Value}");
@@ -280,7 +278,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Delete_NonExistentCategory_ShouldReturnNotFound()
+    public async Task ShouldNotDeleteCategoryBecauseCategoryNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -302,7 +300,8 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
-        await CleanupDatabaseAsync();
+        Context.Categories.RemoveRange(Context.Categories);
+        
+        await SaveChangesAsync();
     }
 }

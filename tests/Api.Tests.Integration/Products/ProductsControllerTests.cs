@@ -8,20 +8,19 @@ using Microsoft.EntityFrameworkCore;
 using Tests.Common;
 using Tests.Data.Categories;
 using Tests.Data.Products;
-using Xunit;
 
 namespace Api.Tests.Integration.Products;
 
 public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
+    private const string BaseRoute = "products";
+    
     private readonly Category _testCategory = CategoryData.FirstTestCategory("Product");
     private readonly Category _secondTestCategory = CategoryData.SecondTestCategory("Product");
-    private Product _firstTestProduct;
-    private Product _secondTestProduct;
-
-    private const string BaseRoute = "products";
-    private HttpClient _adminClient;
-    private HttpClient _managerClient;
+    private readonly Product _firstTestProduct;
+    private readonly Product _secondTestProduct;
+    private readonly HttpClient _adminClient;
+    private readonly HttpClient _managerClient;
 
     public ProductsControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
@@ -35,7 +34,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region GET Tests
 
     [Fact]
-    public async Task GetAll_WithoutAuth_ShouldReturnAllProducts()
+    public async Task ShouldGetAllProductsWithoutAuth()
     {
         // Act
         var response = await Client.GetAsync(BaseRoute);
@@ -49,7 +48,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WithSearchTerm_ShouldReturnMatchingProducts()
+    public async Task ShouldSearchProductsBySearchTerm()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/search?searchTerm=iPhone");
@@ -62,7 +61,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WithCategoryFilter_ShouldReturnProductsInCategory()
+    public async Task ShouldSearchProductsByCategory()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/search?categoryId={_testCategory.Id.Value}");
@@ -75,7 +74,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WithPriceRange_ShouldReturnProductsInRange()
+    public async Task ShouldSearchProductsByPriceRange()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/search?minPrice=900&maxPrice=1000");
@@ -88,7 +87,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WithBrand_ShouldReturnProductsWithBrand()
+    public async Task ShouldSearchProductsByBrand()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/search?brand=Apple");
@@ -101,7 +100,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WithMultipleFilters_ShouldReturnMatchingProducts()
+    public async Task ShouldSearchProductsByMultipleFilters()
     {
         // Act
         var response = await Client.GetAsync(
@@ -114,7 +113,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Search_WithNoResults_ShouldReturnEmptyList()
+    public async Task ShouldReturnEmptyListWhenNoSearchResults()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/search?searchTerm=NonExistentProduct");
@@ -130,7 +129,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region POST Tests (Create)
 
     [Fact]
-    public async Task Create_AsManager_ShouldCreateProduct()
+    public async Task ShouldCreateProductAsManager()
     {
         // Arrange
         var request = ProductData.CreateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -149,7 +148,6 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
         productDto.Brand.Should().Be(request.Brand);
         productDto.Model.Should().Be(request.Model);
 
-        // Використовуємо ProductId для порівняння
         var productId = new ProductId(productDto.Id);
         var dbProduct = await Context.Products
             .Include(p => p.Categories)
@@ -160,7 +158,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_AsAdmin_ShouldCreateProduct()
+    public async Task ShouldCreateProductAsAdmin()
     {
         // Arrange
         var request = ProductData.CreateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -173,7 +171,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotCreateProductBecauseForbidden()
     {
         // Arrange
         var request = ProductData.CreateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -186,7 +184,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotCreateProductBecauseUnauthorized()
     {
         // Arrange
         var request = ProductData.CreateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -199,7 +197,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_WithDuplicateName_ShouldReturnConflict()
+    public async Task ShouldNotCreateProductBecauseDuplicateName()
     {
         // Arrange
         var request = new CreateProductDto(
@@ -220,7 +218,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_WithNonExistentCategory_ShouldReturnNotFound()
+    public async Task ShouldNotCreateProductBecauseCategoryNotFound()
     {
         // Arrange
         var request = ProductData.CreateTestProductDto(new List<Guid> { Guid.NewGuid() });
@@ -233,12 +231,12 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("", "Description", 100, 10)] // Empty name
-    [InlineData("Name", "", 100, 10)] // Empty description
-    [InlineData("Name", "Description", 0, 10)] // Zero price
-    [InlineData("Name", "Description", -1, 10)] // Negative price
-    [InlineData("Name", "Description", 100, -1)] // Negative stock
-    public async Task Create_WithInvalidData_ShouldReturnBadRequest(
+    [InlineData("", "Description", 100, 10)]
+    [InlineData("Name", "", 100, 10)]
+    [InlineData("Name", "Description", 0, 10)]
+    [InlineData("Name", "Description", -1, 10)]
+    [InlineData("Name", "Description", 100, -1)]
+    public async Task ShouldNotCreateProductBecauseInvalidData(
         string name, string description, decimal price, int stock)
     {
         // Arrange
@@ -260,7 +258,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_WithEmptyCategoryList_ShouldReturnBadRequest()
+    public async Task ShouldNotCreateProductBecauseEmptyCategoryList()
     {
         // Arrange
         var request = new CreateProductDto(
@@ -285,7 +283,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region PUT Tests (Update)
 
     [Fact]
-    public async Task Update_AsManager_ShouldUpdateProduct()
+    public async Task ShouldUpdateProductAsManager()
     {
         // Arrange
         var request = ProductData.UpdateTestProductDto(new List<Guid> { _secondTestCategory.Id.Value });
@@ -313,7 +311,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_AsAdmin_ShouldUpdateProduct()
+    public async Task ShouldUpdateProductAsAdmin()
     {
         // Arrange
         var request = ProductData.UpdateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -328,7 +326,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotUpdateProductBecauseForbidden()
     {
         // Arrange
         var request = ProductData.UpdateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -343,7 +341,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_NonExistentProduct_ShouldReturnNotFound()
+    public async Task ShouldNotUpdateProductBecauseProductNotFound()
     {
         // Arrange
         var request = ProductData.UpdateTestProductDto(new List<Guid> { _testCategory.Id.Value });
@@ -357,7 +355,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_WithMultipleCategories_ShouldUpdateCategories()
+    public async Task ShouldUpdateProductWithMultipleCategories()
     {
         // Arrange
         var request = ProductData.UpdateTestProductDto(
@@ -383,7 +381,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region DELETE Tests
 
     [Fact]
-    public async Task Delete_AsManager_ShouldDeleteProduct()
+    public async Task ShouldDeleteProductAsManager()
     {
         // Act
         var response = await _managerClient.DeleteAsync($"{BaseRoute}/{_secondTestProduct.Id.Value}");
@@ -397,7 +395,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Delete_AsAdmin_ShouldDeleteProduct()
+    public async Task ShouldDeleteProductAsAdmin()
     {
         // Arrange
         var tempProduct = ProductData.FirstTestProduct(new List<CategoryId> { _testCategory.Id });
@@ -412,7 +410,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Delete_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotDeleteProductBecauseForbidden()
     {
         // Act
         var response = await AuthenticatedClient.DeleteAsync($"{BaseRoute}/{_firstTestProduct.Id.Value}");
@@ -422,7 +420,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task Delete_NonExistentProduct_ShouldReturnNotFound()
+    public async Task ShouldNotDeleteProductBecauseProductNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -439,7 +437,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region POST Tests (Upload Images)
 
     [Fact]
-    public async Task UploadImages_AsManager_ShouldUploadImages()
+    public async Task ShouldUploadImagesAsManager()
     {
         // Arrange
         var content = new MultipartFormDataContent();
@@ -464,7 +462,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UploadImages_WithNoFiles_ShouldReturnBadRequest()
+    public async Task ShouldNotUploadImagesBecauseNoFiles()
     {
         // Arrange
         var content = new MultipartFormDataContent();
@@ -479,7 +477,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UploadImages_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotUploadImagesBecauseForbidden()
     {
         // Arrange
         var content = new MultipartFormDataContent();
@@ -507,7 +505,9 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
-        await CleanupDatabaseAsync();
+        Context.Products.RemoveRange(Context.Products);
+        Context.Categories.RemoveRange(Context.Categories);
+        
+        await SaveChangesAsync();
     }
 }

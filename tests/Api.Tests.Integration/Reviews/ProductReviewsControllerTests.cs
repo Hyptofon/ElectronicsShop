@@ -9,21 +9,20 @@ using Tests.Common;
 using Tests.Data.Categories;
 using Tests.Data.Products;
 using Tests.Data.Reviews;
-using Xunit;
 
 namespace Api.Tests.Integration.Reviews;
 
 public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private readonly Category _testCategory = CategoryData.FirstTestCategory("Review");
-    private Product _testProduct;
+    private readonly Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private readonly string _otherUserId = Guid.NewGuid().ToString();
-    private HttpClient _userClient;
-    private HttpClient _otherUserClient;
-    private HttpClient _adminClient;
-    private ProductReview _testReview;
-    private string _baseRoute;
+    private readonly HttpClient _userClient;
+    private readonly HttpClient _otherUserClient;
+    private readonly HttpClient _adminClient;
+    private readonly ProductReview _testReview;
+    private readonly string _baseRoute;
 
     public ProductReviewsControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
@@ -36,12 +35,12 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         _baseRoute = $"products/{_testProduct.Id.Value}/reviews";
     }
 
-    #region GET Tests (Get Product Reviews)
+    #region GET Tests
 
     [Fact]
-    public async Task GetReviews_WithoutAuth_ShouldReturnNonModeratedReviews()
+    public async Task ShouldGetNonModeratedReviewsWithoutAuth()
     {
-        // Arrange - додаємо модерований відгук
+        // Arrange
         var moderatedReview = ReviewData.CreateTestReview(_testProduct.Id, Guid.NewGuid());
         moderatedReview.Moderate();
         await Context.ProductReviews.AddAsync(moderatedReview);
@@ -53,12 +52,12 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var reviews = await response.ToResponseModel<List<ProductReviewDto>>();
-        reviews.Should().HaveCount(1); // тільки немодерований
+        reviews.Should().HaveCount(1);
         reviews.Should().OnlyContain(r => !r.IsModerated);
     }
 
     [Fact]
-    public async Task GetReviews_ForProductWithNoReviews_ShouldReturnEmptyList()
+    public async Task ShouldReturnEmptyListForProductWithNoReviews()
     {
         // Arrange
         var product2 = ProductData.SecondTestProduct(new List<CategoryId> { _testCategory.Id });
@@ -76,10 +75,10 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region POST Tests (Create Review)
+    #region POST Tests
 
     [Fact]
-    public async Task CreateReview_AsUser_ShouldCreateReview()
+    public async Task ShouldCreateReviewAsUser()
     {
         // Arrange
         var request = ReviewData.CreateTestReviewDto();
@@ -105,7 +104,7 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateReview_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotCreateReviewBecauseUnauthorized()
     {
         // Arrange
         var request = ReviewData.CreateTestReviewDto();
@@ -118,7 +117,7 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateReview_ForNonExistentProduct_ShouldReturnNotFound()
+    public async Task ShouldNotCreateReviewBecauseProductNotFound()
     {
         // Arrange
         var nonExistentProductId = Guid.NewGuid();
@@ -134,9 +133,9 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(0)] // Rating too low
-    [InlineData(6)] // Rating too high
-    public async Task CreateReview_WithInvalidRating_ShouldReturnBadRequest(int rating)
+    [InlineData(0)]
+    [InlineData(6)]
+    public async Task ShouldNotCreateReviewBecauseInvalidRating(int rating)
     {
         // Arrange
         var request = new CreateProductReviewDto(rating, "Valid comment");
@@ -149,9 +148,9 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("")] // Empty comment
-    [InlineData(null)] // Null comment
-    public async Task CreateReview_WithInvalidComment_ShouldReturnBadRequest(string comment)
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task ShouldNotCreateReviewBecauseInvalidComment(string comment)
     {
         // Arrange
         var request = new CreateProductReviewDto(5, comment);
@@ -175,7 +174,10 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
-        await CleanupDatabaseAsync();
+        Context.ProductReviews.RemoveRange(Context.ProductReviews);
+        Context.Products.RemoveRange(Context.Products);
+        Context.Categories.RemoveRange(Context.Categories);
+        
+        await SaveChangesAsync();
     }
 }

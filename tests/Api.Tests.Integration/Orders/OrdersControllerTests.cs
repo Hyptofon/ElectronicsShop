@@ -17,14 +17,15 @@ namespace Api.Tests.Integration.Orders;
 public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
 {
     private const string BaseRoute = "orders";
+    
     private readonly Category _testCategory = CategoryData.FirstTestCategory("Order");
-    private Product _testProduct;
+    private readonly Product _testProduct;
     private readonly string _testUserId = Guid.NewGuid().ToString();
     private readonly string _adminUserId = Guid.NewGuid().ToString();
-    private HttpClient _userClient;
-    private HttpClient _adminClient;
-    private HttpClient _managerClient;
-    private Order _testOrder; // Це поле буде ініціалізовано в InitializeAsync
+    private readonly HttpClient _userClient;
+    private readonly HttpClient _adminClient;
+    private readonly HttpClient _managerClient;
+    private readonly Order _testOrder;
 
     public OrdersControllerTests(IntegrationTestWebFactory factory) : base(factory)
     {
@@ -34,15 +35,19 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
         
         _testProduct = ProductData.FirstTestProduct(new List<CategoryId> { _testCategory.Id });
         
-        // _testOrder ініціалізується пізніше в InitializeAsync
+        var orderItems = new List<OrderItem>
+        {
+            OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
+        };
+        _testOrder = OrderData.CreateTestOrder(Guid.Parse(_adminUserId), orderItems);
     }
 
     #region GET Tests (My Orders)
 
     [Fact]
-    public async Task GetMyOrders_ShouldReturnUserOrders()
+    public async Task ShouldGetMyOrders()
     {
-        // Arrange - створюємо замовлення для користувача
+        // Arrange
         var orderItems = new List<OrderItem>
         {
             OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
@@ -62,9 +67,9 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetMyOrders_ShouldNotReturnOtherUsersOrders()
+    public async Task ShouldNotGetOtherUsersOrders()
     {
-        // Arrange - створюємо замовлення для іншого користувача
+        // Arrange
         var otherUserId = Guid.NewGuid();
         var orderItems = new List<OrderItem>
         {
@@ -84,7 +89,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetMyOrders_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotGetMyOrdersBecauseUnauthorized()
     {
         // Act
         var response = await Client.GetAsync($"{BaseRoute}/my");
@@ -98,12 +103,12 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region GET Tests (Get by Id)
 
     [Fact]
-    public async Task GetById_AsOwner_ShouldReturnOrder()
+    public async Task ShouldGetOrderByIdAsOwner()
     {
         // Arrange
         var orderItems = new List<OrderItem>
         {
-            OrderData.CreateTestOrderItem(_testOrder.Id, _testProduct.Id)
+            OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
         };
         var order = OrderData.CreateTestOrder(Guid.Parse(_testUserId), orderItems);
         await Context.Orders.AddAsync(order);
@@ -120,7 +125,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_AsManager_ShouldReturnAnyOrder()
+    public async Task ShouldGetAnyOrderAsManager()
     {
         // Act
         var response = await _managerClient.GetAsync($"{BaseRoute}/{_testOrder.Id.Value}");
@@ -130,7 +135,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_AsAdmin_ShouldReturnAnyOrder()
+    public async Task ShouldGetAnyOrderAsAdmin()
     {
         // Act
         var response = await _adminClient.GetAsync($"{BaseRoute}/{_testOrder.Id.Value}");
@@ -140,7 +145,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_AsNonOwner_ShouldReturnNotFound()
+    public async Task ShouldNotGetOrderByIdBecauseNotOwner()
     {
         // Act
         var response = await _userClient.GetAsync($"{BaseRoute}/{_testOrder.Id.Value}");
@@ -150,7 +155,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetById_NonExistentOrder_ShouldReturnNotFound()
+    public async Task ShouldNotGetOrderByIdBecauseOrderNotFound()
     {
         // Arrange
         var nonExistentId = Guid.NewGuid();
@@ -167,9 +172,9 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region POST Tests (Create Order)
 
     [Fact]
-    public async Task CreateOrder_FromCart_ShouldCreateOrderAndClearCart()
+    public async Task ShouldCreateOrderFromCartAndClearCart()
     {
-        // Arrange - створюємо кошик з товарами
+        // Arrange
         var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
         var cartItem = CartItem.New(cart.Id, _testProduct.Id, 2);
         cart.AddItem(cartItem);
@@ -191,13 +196,11 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
         orderDto.Status.Should().Be(OrderStatus.Pending.ToString());
         orderDto.TotalAmount.Should().Be(_testProduct.Price * 2);
 
-        // Перевірка, що кошик очищено
         var dbCart = await Context.Carts
             .Include(c => c.Items)
             .FirstAsync(c => c.Id == cart.Id);
         dbCart.Items.Should().BeEmpty();
 
-        // Перевірка, що запаси зменшилися
         var dbProduct = await Context.Products
             .AsNoTracking()
             .FirstAsync(p => p.Id == _testProduct.Id);
@@ -205,9 +208,9 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateOrder_WithEmptyCart_ShouldReturnBadRequest()
+    public async Task ShouldNotCreateOrderBecauseCartIsEmpty()
     {
-        // Arrange - порожній кошик
+        // Arrange
         var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
         await Context.Carts.AddAsync(cart);
         await SaveChangesAsync();
@@ -222,7 +225,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateOrder_WithNoCart_ShouldReturnBadRequest()
+    public async Task ShouldNotCreateOrderBecauseNoCart()
     {
         // Arrange
         var request = OrderData.CreateTestOrderDto();
@@ -235,11 +238,11 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateOrder_WithInsufficientStock_ShouldReturnBadRequest()
+    public async Task ShouldNotCreateOrderBecauseInsufficientStock()
     {
-        // Arrange - кошик з кількістю більшою за запаси
+        // Arrange
         var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
-        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 1000); // більше за stock
+        var cartItem = CartItem.New(cart.Id, _testProduct.Id, 1000);
         cart.AddItem(cartItem);
         await Context.Carts.AddAsync(cart);
         await SaveChangesAsync();
@@ -254,9 +257,9 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("")] // Empty address
-    [InlineData(null)] // Null address
-    public async Task CreateOrder_WithInvalidAddress_ShouldReturnBadRequest(string address)
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task ShouldNotCreateOrderBecauseInvalidAddress(string address)
     {
         // Arrange
         var cart = Domain.Cart.Cart.New(Guid.Parse(_testUserId));
@@ -275,7 +278,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateOrder_WithoutAuth_ShouldReturnUnauthorized()
+    public async Task ShouldNotCreateOrderBecauseUnauthorized()
     {
         // Arrange
         var request = OrderData.CreateTestOrderDto();
@@ -292,12 +295,12 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region POST Tests (Cancel Order)
 
     [Fact]
-    public async Task CancelOrder_AsOwner_ShouldCancelOrderAndRestoreStock()
+    public async Task ShouldCancelOrderAndRestoreStockAsOwner()
     {
         // Arrange
         var orderItems = new List<OrderItem>
         {
-            OrderData.CreateTestOrderItem(_testOrder.Id, _testProduct.Id)
+            OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
         };
         var order = OrderData.CreateTestOrder(Guid.Parse(_testUserId), orderItems);
         await Context.Orders.AddAsync(order);
@@ -316,7 +319,6 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
         var orderDto = await response.ToResponseModel<OrderDto>();
         orderDto.Status.Should().Be(OrderStatus.Cancelled.ToString());
 
-        // Перевірка, що запаси відновлено
         var dbProduct = await Context.Products
             .AsNoTracking()
             .FirstAsync(p => p.Id == _testProduct.Id);
@@ -324,7 +326,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CancelOrder_AsManager_ShouldCancelAnyOrder()
+    public async Task ShouldCancelAnyOrderAsManager()
     {
         // Act
         var response = await _managerClient.PostAsync($"{BaseRoute}/{_testOrder.Id.Value}/cancel", null);
@@ -334,7 +336,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CancelOrder_AsNonOwner_ShouldReturnForbidden()
+    public async Task ShouldNotCancelOrderBecauseNotOwner()
     {
         // Act
         var response = await _userClient.PostAsync($"{BaseRoute}/{_testOrder.Id.Value}/cancel", null);
@@ -344,29 +346,22 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
     
     [Fact]
-    public async Task CancelOrder_DeliveredOrder_ShouldReturnBadRequest()
+    public async Task ShouldNotCancelOrderBecauseAlreadyDelivered()
     {
         // Arrange
-        // Використовуємо новий унікальний ID для створення items, 
-        // щоб уникнути конфліктів з існуючими замовленнями в EF Core.
-        var tempOrderId = OrderId.New(); 
         var orderItems = new List<OrderItem>
         {
-            OrderData.CreateTestOrderItem(tempOrderId, _testProduct.Id)
+            OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
         };
-    
-        // Створюємо замовлення. Воно згенерує свій власний фінальний ID.
         var order = OrderData.CreateTestOrder(Guid.Parse(_testUserId), orderItems);
-    
         order.UpdateStatus(OrderStatus.Processing);
         order.UpdateStatus(OrderStatus.Shipped);
         order.UpdateStatus(OrderStatus.Delivered);
-    
+        
         await Context.Orders.AddAsync(order);
         await SaveChangesAsync();
 
         // Act
-        // Використовуємо ID новоствореного замовлення
         var response = await _userClient.PostAsync($"{BaseRoute}/{order.Id.Value}/cancel", null);
 
         // Assert
@@ -375,10 +370,10 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     #endregion
 
-    #region GET Tests (All Orders - Admin/Manager)
+    #region GET Tests (All Orders)
 
     [Fact]
-    public async Task GetAll_AsManager_ShouldReturnAllOrders()
+    public async Task ShouldGetAllOrdersAsManager()
     {
         // Act
         var response = await _managerClient.GetAsync(BaseRoute);
@@ -390,7 +385,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAll_AsAdmin_ShouldReturnAllOrders()
+    public async Task ShouldGetAllOrdersAsAdmin()
     {
         // Act
         var response = await _adminClient.GetAsync(BaseRoute);
@@ -400,7 +395,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetAll_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotGetAllOrdersBecauseForbidden()
     {
         // Act
         var response = await _userClient.GetAsync(BaseRoute);
@@ -414,7 +409,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region GET Tests (Get by Status)
 
     [Fact]
-    public async Task GetByStatus_AsManager_ShouldReturnOrdersWithStatus()
+    public async Task ShouldGetOrdersByStatusAsManager()
     {
         // Act
         var response = await _managerClient.GetAsync($"{BaseRoute}/status/Pending");
@@ -426,7 +421,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetByStatus_WithInvalidStatus_ShouldReturnBadRequest()
+    public async Task ShouldNotGetOrdersByStatusBecauseInvalidStatus()
     {
         // Act
         var response = await _managerClient.GetAsync($"{BaseRoute}/status/InvalidStatus");
@@ -436,7 +431,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetByStatus_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotGetOrdersByStatusBecauseForbidden()
     {
         // Act
         var response = await _userClient.GetAsync($"{BaseRoute}/status/Pending");
@@ -450,7 +445,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region PUT Tests (Update Status)
 
     [Fact]
-    public async Task UpdateStatus_AsManager_ShouldUpdateOrderStatus()
+    public async Task ShouldUpdateOrderStatusAsManager()
     {
         // Arrange
         var request = OrderData.CreateUpdateOrderStatusDto("Processing");
@@ -472,7 +467,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateStatus_AsAdmin_ShouldUpdateOrderStatus()
+    public async Task ShouldUpdateOrderStatusAsAdmin()
     {
         // Arrange
         var request = OrderData.CreateUpdateOrderStatusDto("Processing");
@@ -487,7 +482,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateStatus_AsUser_ShouldReturnForbidden()
+    public async Task ShouldNotUpdateOrderStatusBecauseForbidden()
     {
         // Arrange
         var request = OrderData.CreateUpdateOrderStatusDto("Processing");
@@ -502,9 +497,9 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateStatus_WithInvalidTransition_ShouldReturnBadRequest()
+    public async Task ShouldNotUpdateOrderStatusBecauseInvalidTransition()
     {
-        // Arrange - спроба перейти з Pending одразу в Delivered
+        // Arrange
         var request = OrderData.CreateUpdateOrderStatusDto("Delivered");
 
         // Act
@@ -517,9 +512,9 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateStatus_ValidTransition_ShouldSucceed()
+    public async Task ShouldUpdateOrderStatusWithValidTransition()
     {
-        // Arrange - валідний перехід Pending -> Processing
+        // Arrange
         var request = OrderData.CreateUpdateOrderStatusDto("Processing");
 
         // Act
@@ -532,7 +527,7 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task UpdateStatus_WithInvalidStatus_ShouldReturnBadRequest()
+    public async Task ShouldNotUpdateOrderStatusBecauseInvalidStatus()
     {
         // Arrange
         var request = OrderData.CreateUpdateOrderStatusDto("InvalidStatus");
@@ -552,13 +547,6 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
     {
         await Context.Categories.AddAsync(_testCategory);
         await Context.Products.AddAsync(_testProduct);
-        
-        // Створюємо тестове замовлення для адміна
-        var orderItems = new List<OrderItem>
-        {
-            OrderData.CreateTestOrderItem(OrderId.New(), _testProduct.Id)
-        };
-        _testOrder = OrderData.CreateTestOrder(Guid.Parse(_adminUserId), orderItems);
         await Context.Orders.AddAsync(_testOrder);
         
         await SaveChangesAsync();
@@ -566,7 +554,11 @@ public class OrdersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        // ВИПРАВЛЕННЯ: Використовуємо метод CleanupDatabaseAsync
-        await CleanupDatabaseAsync();
+        Context.Orders.RemoveRange(Context.Orders);
+        Context.Carts.RemoveRange(Context.Carts);
+        Context.Products.RemoveRange(Context.Products);
+        Context.Categories.RemoveRange(Context.Categories);
+        
+        await SaveChangesAsync();
     }
 }
