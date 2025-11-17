@@ -31,25 +31,19 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
         return entity ?? Option<Product>.None;
     }
 
-    public async Task<Product> AddAsync(Product entity, CancellationToken cancellationToken)
+    public void Add(Product entity)
     {
-        await context.Products.AddAsync(entity, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
+        context.Products.Add(entity);
     }
 
-    public async Task<Product> UpdateAsync(Product entity, CancellationToken cancellationToken)
+    public void Update(Product entity)
     {
         context.Products.Update(entity);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
     }
 
-    public async Task<Product> DeleteAsync(Product entity, CancellationToken cancellationToken)
+    public void Delete(Product entity)
     {
         context.Products.Remove(entity);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
     }
 
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken)

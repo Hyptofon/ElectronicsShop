@@ -306,7 +306,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
             .AsNoTracking()
             .FirstAsync(p => p.Id == _firstTestProduct.Id);
         dbProduct.Name.Should().Be(request.Name);
-        dbProduct.Categories.Should().HaveCount(1);
+        dbProduct.Categories.Should().HaveCount(2);
         dbProduct.Categories!.First().CategoryId.Should().Be(_secondTestCategory.Id);
     }
 

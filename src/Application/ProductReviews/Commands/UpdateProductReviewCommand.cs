@@ -12,7 +12,8 @@ public record UpdateProductReviewCommand(Guid ReviewId, int Rating, string Comme
 
 public class UpdateProductReviewCommandHandler(
     IProductReviewRepository reviewRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IApplicationDbContext dbContext)
     : IRequestHandler<UpdateProductReviewCommand, Either<ProductReviewException, ProductReview>>
 {
     public async Task<Either<ProductReviewException, ProductReview>> Handle(
@@ -47,7 +48,11 @@ public class UpdateProductReviewCommandHandler(
         try
         {
             review.UpdateReview(request.Rating, request.Comment);
-            return await reviewRepository.UpdateAsync(review, cancellationToken);
+            reviewRepository.Update(review);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return review;
         }
         catch (Exception exception)
         {

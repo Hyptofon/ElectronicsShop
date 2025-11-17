@@ -14,7 +14,8 @@ public record DeleteProductImageCommand(Guid ProductId, Guid ImageId)
 public class DeleteProductImageCommandHandler(
     IProductRepository productRepository,
     IProductImageRepository productImageRepository,
-    IFileStorage fileStorage)
+    IFileStorage fileStorage,
+    IApplicationDbContext dbContext)
     : IRequestHandler<DeleteProductImageCommand, Either<ProductException, Unit>>
 {
     public async Task<Either<ProductException, Unit>> Handle(
@@ -48,14 +49,16 @@ public class DeleteProductImageCommandHandler(
             if (newPrimary != null)
             {
                 newPrimary.SetAsPrimary();
-                await productImageRepository.UpdateRangeAsync([newPrimary], cancellationToken);
+                productImageRepository.UpdateRange([newPrimary]);
             }
         }
 
         try
         {
             await fileStorage.DeleteAsync(image.GetFilePath(), cancellationToken);
-            await productImageRepository.DeleteAsync(image, cancellationToken);
+            productImageRepository.Delete(image);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
             
             return Unit.Default;
         }

@@ -48,4 +48,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         var transaction = await Database.BeginTransactionAsync(cancellationToken);
         return new DbTransactionWrapper(transaction); 
     }
+    
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        return await base.SaveChangesAsync(cancellationToken);
+    }
 }

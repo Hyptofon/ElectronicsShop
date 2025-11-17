@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Repositories;
 using Application.Products.Exceptions;
 using Domain.Categories;
 using Domain.Products;
@@ -20,7 +21,8 @@ public record CreateProductCommand : IRequest<Either<ProductException, Product>>
 
 public class CreateProductCommandHandler(
     IProductRepository productRepository,
-    ICategoryRepository categoryRepository)
+    ICategoryRepository categoryRepository,
+    IApplicationDbContext dbContext)
     : IRequestHandler<CreateProductCommand, Either<ProductException, Product>>
 {
     public async Task<Either<ProductException, Product>> Handle(
@@ -59,7 +61,11 @@ public class CreateProductCommandHandler(
                 request.Model,
                 categoryProducts);
 
-            return await productRepository.AddAsync(product, cancellationToken);
+            productRepository.Add(product);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return product;
         }
         catch (Exception exception)
         {

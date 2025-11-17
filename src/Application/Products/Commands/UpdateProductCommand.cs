@@ -24,7 +24,7 @@ public class UpdateProductCommandHandler(
     IProductRepository productRepository,
     ICategoryRepository categoryRepository,
     ICategoryProductRepository categoryProductRepository,
-    IApplicationDbContext dbContext) // ✅ ДОДАТИ
+    IApplicationDbContext dbContext)
     : IRequestHandler<UpdateProductCommand, Either<ProductException, Product>>
 {
     public async Task<Either<ProductException, Product>> Handle(
@@ -56,7 +56,7 @@ public class UpdateProductCommandHandler(
 
             if (categories.Count != categoryIds.Count)
             {
-                await transaction.RollbackAsync();
+                await transaction.RollbackAsync(cancellationToken);
                 return new ProductCategoriesNotFoundException();
             }
 
@@ -82,23 +82,25 @@ public class UpdateProductCommandHandler(
 
             if (categoriesToRemove.Any())
             {
-                await categoryProductRepository.RemoveRangeAsync(categoriesToRemove, cancellationToken);
+                categoryProductRepository.RemoveRange(categoriesToRemove);
             }
 
             if (categoriesToAdd.Any())
             {
-                await categoryProductRepository.AddRangeAsync(categoriesToAdd, cancellationToken);
+                categoryProductRepository.AddRange(categoriesToAdd);
             }
 
-            var updatedProduct = await productRepository.UpdateAsync(product, cancellationToken);
+            productRepository.Update(product);
             
-            await transaction.CommitAsync();
+            await dbContext.SaveChangesAsync(cancellationToken);
             
-            return updatedProduct;
+            await transaction.CommitAsync(cancellationToken);
+            
+            return product;
         }
         catch (Exception exception)
         {
-            await transaction.RollbackAsync();
+            await transaction.RollbackAsync(cancellationToken);
             return new UnhandledProductException(product.Id, exception);
         }
     }

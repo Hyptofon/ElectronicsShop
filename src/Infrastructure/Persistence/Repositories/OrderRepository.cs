@@ -7,18 +7,14 @@ namespace Infrastructure.Persistence.Repositories;
 
 public class OrderRepository(ApplicationDbContext context) : IOrderRepository
 {
-    public async Task<Order> AddAsync(Order entity, CancellationToken cancellationToken)
+    public void Add(Order entity)
     {
-        await context.Orders.AddAsync(entity, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
+        context.Orders.Add(entity);
     }
 
-    public async Task<Order> UpdateAsync(Order entity, CancellationToken cancellationToken)
+    public void Update(Order entity)
     {
         context.Orders.Update(entity);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
     }
 
     public async Task<Option<Order>> GetByIdAsync(OrderId id, CancellationToken cancellationToken)

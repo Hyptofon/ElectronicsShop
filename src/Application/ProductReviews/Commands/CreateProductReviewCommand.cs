@@ -1,6 +1,4 @@
-﻿// D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\ProductReviews\Commands\CreateProductReviewCommand.cs
-
-using Application.Common.Interfaces;
+﻿using Application.Common.Interfaces;
 using Application.Common.Interfaces.Repositories;
 using Application.ProductReviews.Exceptions;
 using Domain.Products;
@@ -15,7 +13,8 @@ public record CreateProductReviewCommand(Guid ProductId, int Rating, string Comm
 public class CreateProductReviewCommandHandler(
     IProductReviewRepository reviewRepository,
     IProductRepository productRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IApplicationDbContext dbContext)
     : IRequestHandler<CreateProductReviewCommand, Either<ProductReviewException, ProductReview>>
 {
     public async Task<Either<ProductReviewException, ProductReview>> Handle(
@@ -29,8 +28,7 @@ public class CreateProductReviewCommandHandler(
 
         var productId = new ProductId(request.ProductId);
         var userId = currentUserService.UserId.Value;
-
-        // 1. ПЕРЕВІРКА НА ДУБЛІКАТ: Користувач може залишити лише один відгук на продукт.
+        
         var existingReview = await reviewRepository.GetByProductAndUserAsync(
             productId,
             userId,
@@ -38,11 +36,9 @@ public class CreateProductReviewCommandHandler(
 
         if (existingReview.IsSome)
         {
-            // Повертаємо виняток, який повинен бути перехоплений API-шаром і перетворений на 409 Conflict.
             return new ProductReviewAlreadyExistsException(productId, userId);
         }
-        
-        // 2. ПЕРЕВІРКА НА ІСНУВАННЯ ПРОДУКТУ
+
         var product = await productRepository.GetByIdAsync(productId, cancellationToken);
 
         return await product.MatchAsync(
@@ -60,7 +56,11 @@ public class CreateProductReviewCommandHandler(
         try
         {
             var review = ProductReview.New(productId, userId, request.Rating, request.Comment);
-            return await reviewRepository.AddAsync(review, cancellationToken);
+            reviewRepository.Add(review);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return review;
         }
         catch (Exception exception)
         {

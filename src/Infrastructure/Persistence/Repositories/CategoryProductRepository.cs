@@ -7,22 +7,14 @@ namespace Infrastructure.Persistence.Repositories;
 
 public class CategoryProductRepository(ApplicationDbContext context) : ICategoryProductRepository
 {
-    public async Task<IReadOnlyList<CategoryProduct>> AddRangeAsync(
-        IReadOnlyList<CategoryProduct> entities,
-        CancellationToken cancellationToken)
+    public void AddRange(IReadOnlyList<CategoryProduct> entities)
     {
-        await context.CategoryProducts.AddRangeAsync(entities, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return entities;
+        context.CategoryProducts.AddRange(entities);
     }
 
-    public async Task<IReadOnlyList<CategoryProduct>> RemoveRangeAsync(
-        IReadOnlyList<CategoryProduct> entities,
-        CancellationToken cancellationToken)
+    public void RemoveRange(IReadOnlyList<CategoryProduct> entities)
     {
         context.CategoryProducts.RemoveRange(entities);
-        await context.SaveChangesAsync(cancellationToken);
-        return entities;
     }
 
     public async Task<IReadOnlyList<CategoryProduct>> GetByProductIdAsync(

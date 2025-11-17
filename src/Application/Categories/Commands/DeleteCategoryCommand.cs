@@ -1,4 +1,5 @@
 ﻿using Application.Categories.Exceptions;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Repositories;
 using Domain.Categories;
 using LanguageExt;
@@ -9,7 +10,9 @@ namespace Application.Categories.Commands;
 public record DeleteCategoryCommand(Guid CategoryId) 
     : IRequest<Either<CategoryException, Category>>;
 
-public class DeleteCategoryCommandHandler(ICategoryRepository categoryRepository)
+public class DeleteCategoryCommandHandler(
+    ICategoryRepository categoryRepository,
+    IApplicationDbContext dbContext)
     : IRequestHandler<DeleteCategoryCommand, Either<CategoryException, Category>>
 {
     public async Task<Either<CategoryException, Category>> Handle(
@@ -36,7 +39,11 @@ public class DeleteCategoryCommandHandler(ICategoryRepository categoryRepository
                 return new CategoryHasProductsException(category.Id);
             }
 
-            return await categoryRepository.DeleteAsync(category, cancellationToken);
+            categoryRepository.Delete(category);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return category;
         }
         catch (Exception exception)
         {

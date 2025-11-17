@@ -5,14 +5,8 @@ namespace Application.Common.Interfaces.Repositories;
 
 public interface ICategoryProductRepository
 {
-    Task<IReadOnlyList<CategoryProduct>> AddRangeAsync(
-        IReadOnlyList<CategoryProduct> entities,
-        CancellationToken cancellationToken);
-
-    Task<IReadOnlyList<CategoryProduct>> RemoveRangeAsync(
-        IReadOnlyList<CategoryProduct> entities,
-        CancellationToken cancellationToken);
-
+    void AddRange(IReadOnlyList<CategoryProduct> entities);
+    void RemoveRange(IReadOnlyList<CategoryProduct> entities);
     Task<IReadOnlyList<CategoryProduct>> GetByProductIdAsync(
         ProductId productId,
         CancellationToken cancellationToken);

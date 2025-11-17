@@ -5,35 +5,23 @@ namespace Infrastructure.Persistence.Repositories;
 
 public class ProductImageRepository(ApplicationDbContext context) : IProductImageRepository
 {
-    public async Task<ProductImage> AddAsync(ProductImage entity, CancellationToken cancellationToken)
+    public void Add(ProductImage entity)
     {
-        await context.ProductImages.AddAsync(entity, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
+        context.ProductImages.Add(entity);
     }
 
-    public async Task<IReadOnlyList<ProductImage>> AddRangeAsync(
-        IReadOnlyList<ProductImage> entities,
-        CancellationToken cancellationToken)
+    public void AddRange(IReadOnlyList<ProductImage> entities)
     {
-        await context.ProductImages.AddRangeAsync(entities, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return entities;
+        context.ProductImages.AddRange(entities);
     }
     
-    public async Task<ProductImage> DeleteAsync(ProductImage entity, CancellationToken cancellationToken)
+    public void Delete(ProductImage entity)
     {
         context.ProductImages.Remove(entity);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
     }
 
-    public async Task<IReadOnlyList<ProductImage>> UpdateRangeAsync(
-        IReadOnlyList<ProductImage> entities, 
-        CancellationToken cancellationToken)
+    public void UpdateRange(IReadOnlyList<ProductImage> entities)
     {
         context.ProductImages.UpdateRange(entities);
-        await context.SaveChangesAsync(cancellationToken);
-        return entities;
     }
 }

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Repositories;
 using Application.Products.Exceptions;
 using Domain.Products;
 using LanguageExt;
@@ -11,7 +12,8 @@ public record SetPrimaryProductImageCommand(Guid ProductId, Guid ImageId)
     
 public class SetPrimaryProductImageCommandHandler(
     IProductRepository productRepository,
-    IProductImageRepository productImageRepository)
+    IProductImageRepository productImageRepository,
+    IApplicationDbContext dbContext)
     : IRequestHandler<SetPrimaryProductImageCommand, Either<ProductException, Product>>
 {
     public async Task<Either<ProductException, Product>> Handle(
@@ -58,7 +60,9 @@ public class SetPrimaryProductImageCommandHandler(
 
         try
         {
-            await productImageRepository.UpdateRangeAsync(imagesToUpdate, cancellationToken);
+            productImageRepository.UpdateRange(imagesToUpdate);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
         
             var updatedProduct = await productRepository.GetByIdAsync(productId, cancellationToken);
             

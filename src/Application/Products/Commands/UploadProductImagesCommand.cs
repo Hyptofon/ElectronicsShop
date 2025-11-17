@@ -23,7 +23,8 @@ public record ProductImageUpload
 public class UploadProductImagesCommandHandler(
     IProductRepository productRepository,
     IProductImageRepository productImageRepository,
-    IFileStorage fileStorage)
+    IFileStorage fileStorage,
+    IApplicationDbContext dbContext)
     : IRequestHandler<UploadProductImagesCommand, Either<ProductException, Product>>
 {
     public async Task<Either<ProductException, Product>> Handle(
@@ -63,7 +64,9 @@ public class UploadProductImagesCommandHandler(
                 productImages.Add(productImage);
             }
 
-            await productImageRepository.AddRangeAsync(productImages, cancellationToken);
+            productImageRepository.AddRange(productImages);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             return await productRepository.GetByIdAsync(product.Id, cancellationToken)
                 .Match(

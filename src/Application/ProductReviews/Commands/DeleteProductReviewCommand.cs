@@ -12,7 +12,8 @@ public record DeleteProductReviewCommand(Guid ReviewId)
 
 public class DeleteProductReviewCommandHandler(
     IProductReviewRepository reviewRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IApplicationDbContext dbContext)
     : IRequestHandler<DeleteProductReviewCommand, Either<ProductReviewException, ProductReview>>
 {
     public async Task<Either<ProductReviewException, ProductReview>> Handle(
@@ -45,7 +46,11 @@ public class DeleteProductReviewCommandHandler(
 
         try
         {
-            return await reviewRepository.DeleteAsync(review, cancellationToken);
+            reviewRepository.Delete(review);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return review;
         }
         catch (Exception exception)
         {

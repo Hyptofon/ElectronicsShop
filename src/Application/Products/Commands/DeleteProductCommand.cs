@@ -12,7 +12,8 @@ public record DeleteProductCommand(Guid ProductId)
 
 public class DeleteProductCommandHandler(
     IProductRepository productRepository,
-    IFileStorage fileStorage)
+    IFileStorage fileStorage,
+    IApplicationDbContext dbContext)
     : IRequestHandler<DeleteProductCommand, Either<ProductException, Product>>
 {
     public async Task<Either<ProductException, Product>> Handle(
@@ -27,6 +28,7 @@ public class DeleteProductCommandHandler(
             () => Task.FromResult<Either<ProductException, Product>>(
                 new ProductNotFoundException(productId)));
     }
+    
     private async Task<Either<ProductException, Product>> DeleteEntity(
         Product product,
         CancellationToken cancellationToken)
@@ -40,7 +42,12 @@ public class DeleteProductCommandHandler(
                     .ToList();
                 await Task.WhenAll(deleteTasks);
             }
-            return await productRepository.DeleteAsync(product, cancellationToken);
+            
+            productRepository.Delete(product);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return product;
         }
         catch (Exception exception)
         {

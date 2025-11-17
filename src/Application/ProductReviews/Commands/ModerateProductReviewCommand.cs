@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Repositories;
 using Application.ProductReviews.Exceptions;
 using Domain.Products;
 using LanguageExt;
@@ -9,7 +10,9 @@ namespace Application.ProductReviews.Commands;
 public record ModerateProductReviewCommand(Guid ReviewId)
     : IRequest<Either<ProductReviewException, ProductReview>>;
 
-public class ModerateProductReviewCommandHandler(IProductReviewRepository reviewRepository)
+public class ModerateProductReviewCommandHandler(
+    IProductReviewRepository reviewRepository,
+    IApplicationDbContext dbContext)
     : IRequestHandler<ModerateProductReviewCommand, Either<ProductReviewException, ProductReview>>
 {
     public async Task<Either<ProductReviewException, ProductReview>> Handle(
@@ -32,7 +35,11 @@ public class ModerateProductReviewCommandHandler(IProductReviewRepository review
         try
         {
             review.Moderate();
-            return await reviewRepository.UpdateAsync(review, cancellationToken);
+            reviewRepository.Update(review);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return review;
         }
         catch (Exception exception)
         {

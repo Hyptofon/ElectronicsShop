@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Repositories;
 using Application.Orders.Exceptions;
 using Domain.Orders;
 using LanguageExt;
@@ -9,7 +10,9 @@ namespace Application.Orders.Commands;
 public record UpdateOrderStatusCommand(Guid OrderId, OrderStatus NewStatus)
     : IRequest<Either<OrderException, Order>>;
 
-public class UpdateOrderStatusCommandHandler(IOrderRepository orderRepository)
+public class UpdateOrderStatusCommandHandler(
+    IOrderRepository orderRepository,
+    IApplicationDbContext dbContext)
     : IRequestHandler<UpdateOrderStatusCommand, Either<OrderException, Order>>
 {
     public async Task<Either<OrderException, Order>> Handle(
@@ -38,7 +41,11 @@ public class UpdateOrderStatusCommandHandler(IOrderRepository orderRepository)
             }
 
             order.UpdateStatus(newStatus);
-            return await orderRepository.UpdateAsync(order, cancellationToken);
+            orderRepository.Update(order);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return order;
         }
         catch (Exception exception)
         {

@@ -66,17 +66,19 @@ public class CancelOrderCommandHandler(
                     async product =>
                     {
                         product.IncreaseStock(item.Quantity);
-                        await productRepository.UpdateAsync(product, cancellationToken);
+                        productRepository.Update(product);
                         return Unit.Default;
                     },
                     () => Task.FromResult(Unit.Default));
             }
 
-            var updatedOrder = await orderRepository.UpdateAsync(order, cancellationToken);
-            
+            orderRepository.Update(order);
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+   
             await transaction.CommitAsync(cancellationToken);
             
-            return updatedOrder;
+            return order;
         }
         catch (Exception exception)
         {

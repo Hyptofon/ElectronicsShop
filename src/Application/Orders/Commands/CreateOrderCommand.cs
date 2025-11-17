@@ -85,21 +85,23 @@ public class CreateOrderCommandHandler(
                 }
 
                 product.DecreaseStock(cartItem.Quantity);
-                await productRepository.UpdateAsync(product, cancellationToken);
+                productRepository.Update(product);
 
                 var orderItem = OrderItem.New(orderId, product.Id, cartItem.Quantity, product.Price);
                 orderItems.Add(orderItem);
             }
 
             var order = Order.New(userId, request.ShippingAddress, request.Notes, orderItems);
-            var createdOrder = await orderRepository.AddAsync(order, cancellationToken);
+            orderRepository.Add(order);
 
             cart.Clear();
-            await cartRepository.UpdateAsync(cart, cancellationToken);
+            cartRepository.Update(cart);
             
+            await dbContext.SaveChangesAsync(cancellationToken);
+
             await transaction.CommitAsync(cancellationToken);
 
-            return createdOrder;
+            return order;
         }
         catch (Exception exception)
         {

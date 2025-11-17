@@ -11,7 +11,8 @@ public record ClearCartCommand : IRequest<Either<CartException, Cart>>;
 
 public class ClearCartCommandHandler(
     ICartRepository cartRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IApplicationDbContext dbContext)
     : IRequestHandler<ClearCartCommand, Either<CartException, Cart>>
 {
     public async Task<Either<CartException, Cart>> Handle(
@@ -39,7 +40,11 @@ public class ClearCartCommandHandler(
         try
         {
             cart.Clear();
-            return await cartRepository.UpdateAsync(cart, cancellationToken);
+            cartRepository.Update(cart);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return cart;
         }
         catch (Exception exception)
         {

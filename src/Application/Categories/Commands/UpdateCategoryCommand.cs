@@ -1,4 +1,5 @@
 ﻿using Application.Categories.Exceptions;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Repositories;
 using Domain.Categories;
 using LanguageExt;
@@ -13,7 +14,9 @@ public record UpdateCategoryCommand : IRequest<Either<CategoryException, Categor
     public string? Description { get; init; }
 }
 
-public class UpdateCategoryCommandHandler(ICategoryRepository categoryRepository)
+public class UpdateCategoryCommandHandler(
+    ICategoryRepository categoryRepository,
+    IApplicationDbContext dbContext)
     : IRequestHandler<UpdateCategoryCommand, Either<CategoryException, Category>>
 {
     public async Task<Either<CategoryException, Category>> Handle(
@@ -46,7 +49,11 @@ public class UpdateCategoryCommandHandler(ICategoryRepository categoryRepository
         try
         {
             category.UpdateDetails(request.Name, request.Description);
-            return await categoryRepository.UpdateAsync(category, cancellationToken);
+            categoryRepository.Update(category);
+            
+            await dbContext.SaveChangesAsync(cancellationToken);
+            
+            return category;
         }
         catch (Exception exception)
         {

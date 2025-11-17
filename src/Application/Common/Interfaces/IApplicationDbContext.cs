@@ -5,6 +5,7 @@ namespace Application.Common.Interfaces;
 public interface IApplicationDbContext
 {
     Task<IDbTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
 // WRAPPER ДЛЯ ТРАНЗАКЦІЙ

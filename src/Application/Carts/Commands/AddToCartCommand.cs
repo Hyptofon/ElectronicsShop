@@ -14,7 +14,8 @@ public record AddToCartCommand(Guid ProductId, int Quantity)
 public class AddToCartCommandHandler(
     ICartRepository cartRepository,
     IProductRepository productRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IApplicationDbContext dbContext)
     : IRequestHandler<AddToCartCommand, Either<CartException, Cart>>
 {
     public async Task<Either<CartException, Cart>> Handle(
@@ -57,12 +58,24 @@ public class AddToCartCommandHandler(
 
             var cart = await cartOption.MatchAsync(
                 existingCart => Task.FromResult(existingCart),
-                async () => await cartRepository.AddAsync(Cart.New(userId), cancellationToken));
+                () =>
+                {
+                    var newCart = Cart.New(userId);
+                    cartRepository.Add(newCart);
+                    return Task.FromResult(newCart);
+                });
 
             var cartItem = CartItem.New(cart.Id, product.Id, quantity);
             cart.AddItem(cartItem);
+            
+            if (cartOption.IsSome) 
+            {
+                cartRepository.Update(cart);
+            }
 
-            return await cartRepository.UpdateAsync(cart, cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return cart;
         }
         catch (Exception exception)
         {

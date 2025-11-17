@@ -7,18 +7,14 @@ namespace Infrastructure.Persistence.Repositories;
 
 public class CartRepository(ApplicationDbContext context) : ICartRepository
 {
-    public async Task<Cart> AddAsync(Cart entity, CancellationToken cancellationToken)
+    public void Add(Cart entity)
     {
-        await context.Carts.AddAsync(entity, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
+        context.Carts.Add(entity);
     }
 
-    public async Task<Cart> UpdateAsync(Cart entity, CancellationToken cancellationToken)
+    public void Update(Cart entity)
     {
         context.Carts.Update(entity);
-        await context.SaveChangesAsync(cancellationToken);
-        return entity;
     }
 
     public async Task<Option<Cart>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
