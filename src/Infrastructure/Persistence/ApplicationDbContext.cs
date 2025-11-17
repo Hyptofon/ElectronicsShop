@@ -9,7 +9,6 @@ using Domain.Users;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Persistence;
 
@@ -47,6 +46,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public async Task<IDbTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
     {
         var transaction = await Database.BeginTransactionAsync(cancellationToken);
-        return transaction.GetDbTransaction();
+        return new DbTransactionWrapper(transaction); 
     }
 }

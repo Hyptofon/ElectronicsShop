@@ -33,6 +33,11 @@ public class UpdateUserProfileCommandHandler(
         {
             return new UserNotFoundException(currentUserService.UserId.Value.ToString());
         }
+        
+        if (user.IsBlocked)
+        {
+            return new UserBlockedException(user.Email!);
+        }
 
         try
         {

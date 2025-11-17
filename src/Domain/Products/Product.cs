@@ -50,6 +50,18 @@ public class Product
     public void UpdateDetails(string name, string description, decimal price, 
         int stockQuantity, string? brand, string? model)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Product name cannot be empty", nameof(name));
+    
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("Product description cannot be empty", nameof(description));
+    
+        if (price <= 0)
+            throw new ArgumentException("Price must be greater than zero", nameof(price));
+    
+        if (stockQuantity < 0)
+            throw new ArgumentException("Stock quantity cannot be negative", nameof(stockQuantity));
+        
         Name = name;
         Description = description;
         Price = price;

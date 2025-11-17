@@ -18,6 +18,7 @@ public class CreateOrderCommandHandler(
     IOrderRepository orderRepository,
     ICartRepository cartRepository,
     IProductRepository productRepository,
+    IApplicationDbContext dbContext,
     ICurrentUserService currentUserService)
     : IRequestHandler<CreateOrderCommand, Either<OrderException, Order>>
 {
@@ -48,6 +49,10 @@ public class CreateOrderCommandHandler(
         {
             return new EmptyCartException();
         }
+        
+        using var transaction = await dbContext.BeginTransactionAsync(cancellationToken)
+            as IDbTransactionWrapper
+            ?? throw new InvalidOperationException("Transaction is not IDbTransactionWrapper");
 
         try
         {
@@ -56,14 +61,23 @@ public class CreateOrderCommandHandler(
 
             foreach (var cartItem in cart.Items)
             {
-                var productOption = await productRepository.GetByIdAsync(cartItem.ProductId, cancellationToken);
+                var productOption = await productRepository.GetByIdAsync(
+                    cartItem.ProductId, 
+                    cancellationToken);
+                
+                if (productOption.IsNone)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new ProductNotFoundForOrderException(cartItem.ProductId.Value);
+                }
 
-                var product = await productOption.Match(
-                    p => Task.FromResult(p),
-                    () => throw new InvalidOperationException($"Product {cartItem.ProductId} not found"));
+                var product = productOption.Match(
+                    p => p,
+                    () => throw new InvalidOperationException("This should never happen"));
 
                 if (product.StockQuantity < cartItem.Quantity)
                 {
+                    await transaction.RollbackAsync(cancellationToken);
                     return new InsufficientStockForOrderException(
                         product.Id.Value,
                         cartItem.Quantity,
@@ -82,11 +96,14 @@ public class CreateOrderCommandHandler(
 
             cart.Clear();
             await cartRepository.UpdateAsync(cart, cancellationToken);
+            
+            await transaction.CommitAsync(cancellationToken);
 
             return createdOrder;
         }
         catch (Exception exception)
         {
+            await transaction.RollbackAsync(cancellationToken);
             return new UnhandledOrderException(OrderId.Empty(), exception);
         }
     }

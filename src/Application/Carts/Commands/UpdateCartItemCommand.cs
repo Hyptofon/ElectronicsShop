@@ -12,6 +12,7 @@ public record UpdateCartItemCommand(Guid CartItemId, int Quantity)
 
 public class UpdateCartItemCommandHandler(
     ICartRepository cartRepository,
+    IProductRepository productRepository,
     ICurrentUserService currentUserService)
     : IRequestHandler<UpdateCartItemCommand, Either<CartException, Cart>>
 {
@@ -47,9 +48,26 @@ public class UpdateCartItemCommandHandler(
             {
                 return new CartItemNotFoundException(cart.Id);
             }
+            var productOption = await productRepository.GetByIdAsync(
+                cartItem.ProductId, 
+                cancellationToken);
 
-            cartItem.UpdateQuantity(quantity);
-            return await cartRepository.UpdateAsync(cart, cancellationToken);
+            return await productOption.MatchAsync(
+                async product =>
+                {
+                    if (product.StockQuantity < quantity)
+                    {
+                        return new InsufficientStockForCartException(
+                            product.Id.Value,
+                            quantity,
+                            product.StockQuantity);
+                    }
+
+                    cartItem.UpdateQuantity(quantity);
+                    return await cartRepository.UpdateAsync(cart, cancellationToken);
+                },
+                () => Task.FromResult<Either<CartException, Cart>>(
+                    new ProductNotFoundForCartException(cartItem.ProductId.Value)));
         }
         catch (Exception exception)
         {

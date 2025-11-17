@@ -22,13 +22,15 @@ public class SetPrimaryProductImageCommandHandler(
         var imageId = new ProductImageId(request.ImageId);
 
         var productOption = await productRepository.GetByIdAsync(productId, cancellationToken);
-
+        
         if (productOption.IsNone)
         {
             return new ProductNotFoundException(productId);
         }
-
-        var product = productOption.IfNone(Product.New(ProductId.Empty(), "", "", 0, 0, null, null, [])); // Заглушка
+        
+        var product = productOption.Match(
+            p => p,
+            () => throw new InvalidOperationException("This should never happen"));
         
         var currentPrimary = product.Images?.FirstOrDefault(i => i.IsPrimary);
         var newPrimary = product.Images?.FirstOrDefault(i => i.Id == imageId);

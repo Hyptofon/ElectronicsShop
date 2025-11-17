@@ -1,5 +1,4 @@
-﻿// src/Application/Authentication/Commands/RefreshTokenCommand.cs
-using Application.Authentication.Exceptions;
+﻿using Application.Authentication.Exceptions;
 using Application.Authentication.Interfaces;
 using Application.Authentication.Models;
 using Domain.Users;
@@ -25,41 +24,55 @@ public class RefreshTokenCommandHandler(
         RefreshTokenCommand request,
         CancellationToken cancellationToken)
     {
-        // 1. Шукаємо користувача, у якого цей RefreshToken записаний в БД
         var user = await userManager.Users
             .FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken, cancellationToken);
 
-        // Якщо користувача немає, або токен не співпадає (зайва перевірка, але безпечна)
         if (user == null || user.RefreshToken != request.RefreshToken)
         {
             return new InvalidCredentialsException();
         }
 
-        // 2. Перевірка на блокування
         if (user.IsBlocked)
         {
             return new UserBlockedException(user.Email!);
         }
-
-        // 3. Перевірка терміну дії
+        
         if (user.RefreshTokenExpiryTime <= DateTime.UtcNow)
         {
-            // Токен прострочений - відкликаємо його
             user.RevokeRefreshToken();
-            await userManager.UpdateAsync(user);
+            
+            try
+            {
+                await userManager.UpdateAsync(user);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                
+            }
+            
             return new InvalidCredentialsException();
         }
 
         try
         {
-            // 4. Генеруємо нову пару
             var roles = await userManager.GetRolesAsync(user);
             var newAccessToken = jwtTokenGenerator.GenerateToken(user, roles.ToList());
             var newRefreshToken = jwtTokenGenerator.GenerateRefreshToken();
             
-            // 5. Оновлюємо БД: старий стираємо, новий записуємо
-            user.SetRefreshToken(newRefreshToken, DateTime.UtcNow.AddDays(7)); 
-            await userManager.UpdateAsync(user);
+            user.SetRefreshToken(newRefreshToken, DateTime.UtcNow.AddDays(7));
+            var updateResult = await userManager.UpdateAsync(user);
+            
+            if (!updateResult.Succeeded)
+            {
+                if (updateResult.Errors.Any(e => e.Code.Contains("Concurrency")))
+                {
+                    return new InvalidCredentialsException();
+                }
+                
+                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+                return new UnhandledAuthenticationException(
+                    new InvalidOperationException($"Failed to refresh token: {errors}"));
+            }
 
             return new AuthenticationResult
             {
@@ -71,6 +84,10 @@ public class RefreshTokenCommandHandler(
                 LastName = user.LastName,
                 Roles = roles.ToList()
             };
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new InvalidCredentialsException();
         }
         catch (Exception exception)
         {

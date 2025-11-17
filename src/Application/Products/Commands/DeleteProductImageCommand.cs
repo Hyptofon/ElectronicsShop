@@ -31,7 +31,10 @@ public class DeleteProductImageCommandHandler(
             return new ProductNotFoundException(productId);
         }
 
-        var product = productOption.IfNone(Product.New(ProductId.Empty(), "", "", 0, 0, null, null, [])); // Заглушка
+        var product = productOption.Match(
+            p => p,
+            () => throw new InvalidOperationException("This should never happen"));
+        
         var image = product.Images?.FirstOrDefault(i => i.Id == imageId);
 
         if (image == null)

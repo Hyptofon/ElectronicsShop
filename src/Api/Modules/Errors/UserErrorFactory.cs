@@ -13,6 +13,7 @@ public static class UserErrorFactory
             {
                 UserNotFoundException => StatusCodes.Status404NotFound,
                 UnauthorizedUserAccessException => StatusCodes.Status403Forbidden,
+                UserBlockedException => StatusCodes.Status403Forbidden,
                 InvalidRoleException => StatusCodes.Status400BadRequest,
                 UnhandledUserException => StatusCodes.Status500InternalServerError,
                 _ => throw new NotImplementedException("User error handler not implemented")

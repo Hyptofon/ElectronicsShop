@@ -11,6 +11,7 @@ public class ApplicationUser : IdentityUser<Guid>
     public bool IsBlocked { get; private set; }
     public string? RefreshToken { get; private set; }
     public DateTime? RefreshTokenExpiryTime { get; private set; }
+    public byte[]? RowVersion { get; private set; }
 
     private ApplicationUser() { }
 

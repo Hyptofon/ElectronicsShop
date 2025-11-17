@@ -37,5 +37,11 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
         builder.Property(x => x.RefreshTokenExpiryTime) 
             .HasConversion(new DateTimeUtcConverter())
             .IsRequired(false);
+        
+        builder.Property(x => x.RowVersion)
+            .HasColumnType("bytea") 
+            .IsRowVersion()
+            .IsConcurrencyToken()
+            .ValueGeneratedOnAddOrUpdate();
     }
 }

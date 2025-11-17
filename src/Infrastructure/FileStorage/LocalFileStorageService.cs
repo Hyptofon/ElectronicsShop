@@ -13,6 +13,17 @@ public class LocalFileStorageService(ILogger<LocalFileStorageService> logger) : 
         try
         {
             var fullPath = Path.Combine(BaseDirectory, fileFullPath);
+            
+            // ✅ ПЕРЕВІРКА НА PATH TRAVERSAL (залишаємо для безпеки)
+            var normalizedFullPath = Path.GetFullPath(fullPath);
+            var normalizedBaseDirectory = Path.GetFullPath(BaseDirectory);
+            
+            if (!normalizedFullPath.StartsWith(normalizedBaseDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("Invalid file path detected: {Path}", fileFullPath);
+                throw new InvalidOperationException("Invalid file path");
+            }
+
             var directory = Path.GetDirectoryName(fullPath);
 
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -39,6 +50,15 @@ public class LocalFileStorageService(ILogger<LocalFileStorageService> logger) : 
         try
         {
             var fullPath = Path.Combine(BaseDirectory, fileFullPath);
+            
+            var normalizedFullPath = Path.GetFullPath(fullPath);
+            var normalizedBaseDirectory = Path.GetFullPath(BaseDirectory);
+            
+            if (!normalizedFullPath.StartsWith(normalizedBaseDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("Invalid file path detected: {Path}", fileFullPath);
+                return Task.FromResult(false);
+            }
 
             if (File.Exists(fullPath))
             {

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces.Repositories;
+﻿using Application.Common.Interfaces;
+using Application.Common.Interfaces.Repositories;
 using Application.Products.Exceptions;
 using Domain.Categories;
 using Domain.Products;
@@ -22,7 +23,8 @@ public record UpdateProductCommand : IRequest<Either<ProductException, Product>>
 public class UpdateProductCommandHandler(
     IProductRepository productRepository,
     ICategoryRepository categoryRepository,
-    ICategoryProductRepository categoryProductRepository)
+    ICategoryProductRepository categoryProductRepository,
+    IApplicationDbContext dbContext) // ✅ ДОДАТИ
     : IRequestHandler<UpdateProductCommand, Either<ProductException, Product>>
 {
     public async Task<Either<ProductException, Product>> Handle(
@@ -43,6 +45,10 @@ public class UpdateProductCommandHandler(
         UpdateProductCommand request,
         CancellationToken cancellationToken)
     {
+        using var transaction = await dbContext.BeginTransactionAsync(cancellationToken) 
+                                    as IDbTransactionWrapper 
+                                ?? throw new InvalidOperationException("Transaction is not IDbTransactionWrapper");
+        
         try
         {
             var categoryIds = request.Categories.Select(x => new CategoryId(x)).ToList();
@@ -50,6 +56,7 @@ public class UpdateProductCommandHandler(
 
             if (categories.Count != categoryIds.Count)
             {
+                await transaction.RollbackAsync();
                 return new ProductCategoriesNotFoundException();
             }
 
@@ -83,10 +90,15 @@ public class UpdateProductCommandHandler(
                 await categoryProductRepository.AddRangeAsync(categoriesToAdd, cancellationToken);
             }
 
-            return await productRepository.UpdateAsync(product, cancellationToken);
+            var updatedProduct = await productRepository.UpdateAsync(product, cancellationToken);
+            
+            await transaction.CommitAsync();
+            
+            return updatedProduct;
         }
         catch (Exception exception)
         {
+            await transaction.RollbackAsync();
             return new UnhandledProductException(product.Id, exception);
         }
     }

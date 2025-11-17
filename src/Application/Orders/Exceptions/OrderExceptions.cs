@@ -26,3 +26,6 @@ public class InvalidOrderStatusTransitionException(OrderId orderId, OrderStatus 
 
 public class UnhandledOrderException(OrderId orderId, Exception? innerException)
     : OrderException(orderId, "Unexpected error occurred while processing order", innerException);
+    
+public class ProductNotFoundForOrderException(Guid productId)
+    : OrderException(OrderId.Empty(), $"Product with id {productId} not found for order operation");

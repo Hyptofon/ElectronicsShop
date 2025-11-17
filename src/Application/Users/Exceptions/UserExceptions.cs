@@ -14,3 +14,6 @@ public class InvalidRoleException(string role)
 
 public class UnhandledUserException(Exception? innerException)
     : UserException("Unexpected error occurred during user operation", innerException);
+    
+public class UserBlockedException(string email)
+    : UserException($"User {email} is blocked and cannot perform this action");
