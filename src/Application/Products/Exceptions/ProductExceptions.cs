@@ -22,3 +22,6 @@ public class InsufficientStockException(ProductId productId, int requested, int 
 
 public class UnhandledProductException(ProductId productId, Exception? innerException = null)
     : ProductException(productId, "Unexpected error occurred", innerException);
+    
+public class ProductImageNotFoundException(ProductImageId imageId)
+    : ProductException(ProductId.Empty(), $"Product image not found under id {imageId.Value}");

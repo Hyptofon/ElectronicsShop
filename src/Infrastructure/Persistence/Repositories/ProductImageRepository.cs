@@ -20,4 +20,20 @@ public class ProductImageRepository(ApplicationDbContext context) : IProductImag
         await context.SaveChangesAsync(cancellationToken);
         return entities;
     }
+    
+    public async Task<ProductImage> DeleteAsync(ProductImage entity, CancellationToken cancellationToken)
+    {
+        context.ProductImages.Remove(entity);
+        await context.SaveChangesAsync(cancellationToken);
+        return entity;
+    }
+
+    public async Task<IReadOnlyList<ProductImage>> UpdateRangeAsync(
+        IReadOnlyList<ProductImage> entities, 
+        CancellationToken cancellationToken)
+    {
+        context.ProductImages.UpdateRange(entities);
+        await context.SaveChangesAsync(cancellationToken);
+        return entities;
+    }
 }

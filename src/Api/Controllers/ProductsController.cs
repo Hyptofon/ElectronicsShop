@@ -136,4 +136,34 @@ public class ProductsController(ISender sender, IProductQueries productQueries) 
             p => ProductDto.FromDomainModel(p),
             e => e.ToObjectResult());
     }
+    
+    [Authorize(Roles = "Manager,Admin")]
+    [HttpDelete("{id:guid}/images/{imageId:guid}")]
+    public async Task<ActionResult> DeleteImage(
+        [FromRoute] Guid id,
+        [FromRoute] Guid imageId,
+        CancellationToken cancellationToken)
+    {
+        var command = new DeleteProductImageCommand(id, imageId);
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.Match<ActionResult>(
+            _ => NoContent(),
+            e => e.ToObjectResult());
+    }
+    
+    [Authorize(Roles = "Manager,Admin")]
+    [HttpPost("{id:guid}/images/{imageId:guid}/set-primary")]
+    public async Task<ActionResult<ProductDto>> SetPrimaryImage(
+        [FromRoute] Guid id,
+        [FromRoute] Guid imageId,
+        CancellationToken cancellationToken)
+    {
+        var command = new SetPrimaryProductImageCommand(id, imageId);
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.Match<ActionResult<ProductDto>>(
+            p => ProductDto.FromDomainModel(p), 
+            e => e.ToObjectResult());
+    }
 }
