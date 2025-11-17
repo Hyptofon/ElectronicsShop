@@ -42,11 +42,11 @@ public class ReviewsController(ISender sender) : ControllerBase
     }
 
     [Authorize(Roles = "Admin")]
-    [HttpGet("moderated")]
-    public async Task<ActionResult<IReadOnlyList<ProductReviewDto>>> GetModerated(
+    [HttpGet("unmoderated")]
+    public async Task<ActionResult<IReadOnlyList<ProductReviewDto>>> GetUnmoderated(
         CancellationToken cancellationToken)
     {
-        var query = new GetModeratedReviewsQuery();
+        var query = new GetUnmoderatedReviewsQuery(); 
         var reviews = await sender.Send(query, cancellationToken);
         return reviews.Select(ProductReviewDto.FromDomainModel).ToList();
     }

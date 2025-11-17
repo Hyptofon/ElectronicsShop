@@ -31,7 +31,7 @@ public class DeleteCategoryCommandHandler(ICategoryRepository categoryRepository
     {
         try
         {
-            if (category.Products != null && category.Products.Any())
+            if (await categoryRepository.HasProductsAsync(category.Id, cancellationToken))
             {
                 return new CategoryHasProductsException(category.Id);
             }

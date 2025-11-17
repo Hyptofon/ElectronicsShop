@@ -214,7 +214,7 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
         var response = await _managerClient.PostAsJsonAsync(BaseRoute, request);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

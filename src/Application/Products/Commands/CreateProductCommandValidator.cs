@@ -1,14 +1,25 @@
-﻿using FluentValidation;
+﻿using Application.Common.Interfaces.Repositories; 
+using FluentValidation;
 
 namespace Application.Products.Commands;
 
 public class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
 {
-    public CreateProductCommandValidator()
+    private readonly IProductRepository _productRepository; 
+    
+    public CreateProductCommandValidator(IProductRepository productRepository) 
     {
+        _productRepository = productRepository; 
+        
         RuleFor(x => x.Name)
             .NotEmpty()
-            .MaximumLength(255);
+            .MaximumLength(255)
+            .MustAsync(async (name, cancellationToken) =>
+            {
+                var productOption = await _productRepository.GetByNameAsync(name, cancellationToken);
+                return productOption.IsNone;
+            })
+            .WithMessage("A product with this name already exists.");
 
         RuleFor(x => x.Description)
             .NotEmpty()

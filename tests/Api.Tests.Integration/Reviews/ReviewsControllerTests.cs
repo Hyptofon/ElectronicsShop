@@ -244,28 +244,27 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region GET Tests (Moderated)
 
     [Fact]
-    public async Task ShouldGetModeratedReviewsAsAdmin()
+    public async Task ShouldGetUnmoderatedReviewsAsAdmin()
     {
         // Arrange
-        _userReview.Moderate();
         Context.ProductReviews.Update(_userReview);
         await SaveChangesAsync();
 
         // Act
-        var response = await _adminClient.GetAsync($"{BaseRoute}/moderated");
+        var response = await _adminClient.GetAsync($"{BaseRoute}/unmoderated");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var reviews = await response.ToResponseModel<List<ProductReviewDto>>();
-        reviews.Should().HaveCount(1);
-        reviews.Should().OnlyContain(r => r.IsModerated);
+        reviews.Should().HaveCount(2);
+        reviews.Should().OnlyContain(r => !r.IsModerated);
     }
 
     [Fact]
     public async Task ShouldNotGetModeratedReviewsBecauseForbidden()
     {
         // Act
-        var response = await _userClient.GetAsync($"{BaseRoute}/moderated");
+        var response = await _userClient.GetAsync($"{BaseRoute}/unmoderated");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -275,7 +274,7 @@ public class ReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     public async Task ShouldNotGetModeratedReviewsBecauseUnauthorized()
     {
         // Act
-        var response = await Client.GetAsync($"{BaseRoute}/moderated");
+        var response = await Client.GetAsync($"{BaseRoute}/unmoderated");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

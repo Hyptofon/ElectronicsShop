@@ -64,5 +64,11 @@ public class CategoryRepository(ApplicationDbContext context) : ICategoryReposit
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
     }
+    
+    public async Task<bool> HasProductsAsync(CategoryId id, CancellationToken cancellationToken)
+    {
+        return await context.CategoryProducts
+            .AnyAsync(cp => cp.CategoryId == id, cancellationToken);
+    }
 }
 

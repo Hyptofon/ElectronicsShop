@@ -13,4 +13,6 @@ public interface ICategoryRepository
     Task<IReadOnlyList<Category>> GetByIdsAsync(
         IReadOnlyList<CategoryId> categoryIds,
         CancellationToken cancellationToken);
+    
+    Task<bool> HasProductsAsync(CategoryId id, CancellationToken cancellationToken);
 }

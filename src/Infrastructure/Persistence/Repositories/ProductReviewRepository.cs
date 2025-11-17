@@ -44,7 +44,17 @@ public class ProductReviewRepository(ApplicationDbContext context) : IProductRev
     {
         return await context.ProductReviews
             .AsNoTracking()
-            .Where(x => x.ProductId == productId && !x.IsModerated)
+            .Where(x => x.ProductId == productId && x.IsModerated)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProductReview>> GetAllUnmoderatedAsync(
+        CancellationToken cancellationToken)
+    {
+        return await context.ProductReviews
+            .AsNoTracking()
+            .Where(x => !x.IsModerated) 
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
     }

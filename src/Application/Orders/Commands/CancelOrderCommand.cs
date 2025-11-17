@@ -14,7 +14,8 @@ public record CancelOrderCommand(Guid OrderId)
 public class CancelOrderCommandHandler(
     IOrderRepository orderRepository,
     IProductRepository productRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IApplicationDbContext dbContext) 
     : IRequestHandler<CancelOrderCommand, Either<OrderException, Order>>
 {
     public async Task<Either<OrderException, Order>> Handle(
@@ -48,6 +49,10 @@ public class CancelOrderCommandHandler(
         {
             return new InvalidOrderStatusTransitionException(order.Id, order.Status, OrderStatus.Cancelled);
         }
+        
+        using var transaction = await dbContext.BeginTransactionAsync(cancellationToken)
+            as IDbTransactionWrapper
+            ?? throw new InvalidOperationException("Transaction is not IDbTransactionWrapper");
 
         try
         {
@@ -56,7 +61,7 @@ public class CancelOrderCommandHandler(
             foreach (var item in order.Items)
             {
                 var productOption = await productRepository.GetByIdAsync(item.ProductId, cancellationToken);
-
+                
                 await productOption.MatchAsync(
                     async product =>
                     {
@@ -67,10 +72,15 @@ public class CancelOrderCommandHandler(
                     () => Task.FromResult(Unit.Default));
             }
 
-            return await orderRepository.UpdateAsync(order, cancellationToken);
+            var updatedOrder = await orderRepository.UpdateAsync(order, cancellationToken);
+            
+            await transaction.CommitAsync(cancellationToken);
+            
+            return updatedOrder;
         }
         catch (Exception exception)
         {
+            await transaction.RollbackAsync(cancellationToken);
             return new UnhandledOrderException(order.Id, exception);
         }
     }

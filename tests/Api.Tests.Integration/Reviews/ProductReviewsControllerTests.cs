@@ -40,7 +40,7 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     #region GET Tests
 
     [Fact]
-    public async Task ShouldGetNonModeratedReviewsWithoutAuth()
+    public async Task ShouldGetOnlyApprovedReviewsWithoutAuth()
     {
         // Arrange
         var moderatedReview = ReviewData.CreateTestReview(_testProduct.Id, Guid.NewGuid());
@@ -55,7 +55,7 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var reviews = await response.ToResponseModel<List<ProductReviewDto>>();
         reviews.Should().HaveCount(1);
-        reviews.Should().OnlyContain(r => !r.IsModerated);
+        reviews.Should().OnlyContain(r => r.IsModerated);
     }
 
     [Fact]

@@ -12,7 +12,7 @@ public interface IProductReviewRepository
     Task<IReadOnlyList<ProductReview>> GetByProductIdAsync(
         ProductId productId,
         CancellationToken cancellationToken);
-    Task<IReadOnlyList<ProductReview>> GetAllModeratedAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<ProductReview>> GetAllUnmoderatedAsync(CancellationToken cancellationToken);
     
     Task<Option<ProductReview>> GetByProductAndUserAsync(ProductId productId, Guid userId, CancellationToken cancellationToken);
 }

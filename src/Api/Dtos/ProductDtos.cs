@@ -19,7 +19,7 @@ public record ProductDto(
 {
     public static ProductDto FromDomainModel(Product product)
     {
-        var reviews = product.Reviews?.Where(r => !r.IsModerated).ToList() ?? new List<ProductReview>();
+        var reviews = product.Reviews?.Where(r => r.IsModerated).ToList() ?? new List<ProductReview>();
         var averageRating = reviews.Any() ? reviews.Average(r => r.Rating) : 0;
 
         return new ProductDto(

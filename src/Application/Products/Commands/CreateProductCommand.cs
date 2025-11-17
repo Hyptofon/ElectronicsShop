@@ -27,11 +27,7 @@ public class CreateProductCommandHandler(
         CreateProductCommand request,
         CancellationToken cancellationToken)
     {
-        var existingProduct = await productRepository.GetByNameAsync(request.Name, cancellationToken);
-
-        return await existingProduct.MatchAsync(
-            p => new ProductAlreadyExistException(p.Id),
-            () => CreateEntity(request, cancellationToken));
+        return await CreateEntity(request, cancellationToken);
     }
 
     private async Task<Either<ProductException, Product>> CreateEntity(
