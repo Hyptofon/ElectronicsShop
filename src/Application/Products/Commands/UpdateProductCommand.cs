@@ -45,10 +45,6 @@ public class UpdateProductCommandHandler(
         UpdateProductCommand request,
         CancellationToken cancellationToken)
     {
-        using var transaction = await dbContext.BeginTransactionAsync(cancellationToken) 
-                                    as IDbTransactionWrapper 
-                                ?? throw new InvalidOperationException("Transaction is not IDbTransactionWrapper");
-        
         try
         {
             var categoryIds = request.Categories.Select(x => new CategoryId(x)).ToList();
@@ -56,7 +52,6 @@ public class UpdateProductCommandHandler(
 
             if (categories.Count != categoryIds.Count)
             {
-                await transaction.RollbackAsync(cancellationToken);
                 return new ProductCategoriesNotFoundException();
             }
 
@@ -89,18 +84,16 @@ public class UpdateProductCommandHandler(
             {
                 categoryProductRepository.AddRange(categoriesToAdd);
             }
-
+            product.Categories?.Clear();
             productRepository.Update(product);
             
             await dbContext.SaveChangesAsync(cancellationToken);
             
-            await transaction.CommitAsync(cancellationToken);
             
             return product;
         }
         catch (Exception exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
             return new UnhandledProductException(product.Id, exception);
         }
     }

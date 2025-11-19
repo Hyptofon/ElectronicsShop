@@ -50,10 +50,6 @@ public class CancelOrderCommandHandler(
             return new InvalidOrderStatusTransitionException(order.Id, order.Status, OrderStatus.Cancelled);
         }
         
-        using var transaction = await dbContext.BeginTransactionAsync(cancellationToken)
-            as IDbTransactionWrapper
-            ?? throw new InvalidOperationException("Transaction is not IDbTransactionWrapper");
-
         try
         {
             order.Cancel();
@@ -75,14 +71,12 @@ public class CancelOrderCommandHandler(
             orderRepository.Update(order);
 
             await dbContext.SaveChangesAsync(cancellationToken);
-   
-            await transaction.CommitAsync(cancellationToken);
+            
             
             return order;
         }
         catch (Exception exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
             return new UnhandledOrderException(order.Id, exception);
         }
     }

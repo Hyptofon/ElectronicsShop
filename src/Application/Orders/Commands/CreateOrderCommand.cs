@@ -50,10 +50,6 @@ public class CreateOrderCommandHandler(
             return new EmptyCartException();
         }
         
-        using var transaction = await dbContext.BeginTransactionAsync(cancellationToken)
-            as IDbTransactionWrapper
-            ?? throw new InvalidOperationException("Transaction is not IDbTransactionWrapper");
-
         try
         {
             var orderId = OrderId.New();
@@ -67,7 +63,6 @@ public class CreateOrderCommandHandler(
                 
                 if (productOption.IsNone)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
                     return new ProductNotFoundForOrderException(cartItem.ProductId.Value);
                 }
 
@@ -77,7 +72,6 @@ public class CreateOrderCommandHandler(
 
                 if (product.StockQuantity < cartItem.Quantity)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
                     return new InsufficientStockForOrderException(
                         product.Id.Value,
                         cartItem.Quantity,
@@ -99,13 +93,10 @@ public class CreateOrderCommandHandler(
             
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            await transaction.CommitAsync(cancellationToken);
-
             return order;
         }
         catch (Exception exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
             return new UnhandledOrderException(OrderId.Empty(), exception);
         }
     }
