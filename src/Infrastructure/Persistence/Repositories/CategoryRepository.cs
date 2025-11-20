@@ -27,7 +27,7 @@ public class CategoryRepository(ApplicationDbContext context) : ICategoryReposit
     {
         var entity = await context.Categories
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Name == name, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Name.ToLower() == name.ToLower(), cancellationToken);
 
         return entity ?? Option<Category>.None;
     }

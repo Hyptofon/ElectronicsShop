@@ -26,7 +26,7 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
     {
         var entity = await context.Products
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Name == name, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Name.ToLower() == name.ToLower(), cancellationToken);
 
         return entity ?? Option<Product>.None;
     }
@@ -74,17 +74,18 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
+            var lowerTerm = searchTerm.ToLower();
             query = query.Where(x => 
-                x.Name.Contains(searchTerm) || 
-                x.Description.Contains(searchTerm) ||
-                (x.Brand != null && x.Brand.Contains(searchTerm)) ||
-                (x.Model != null && x.Model.Contains(searchTerm)));
+                x.Name.ToLower().Contains(lowerTerm) || 
+                x.Description.ToLower().Contains(lowerTerm) ||
+                (x.Brand != null && x.Brand.ToLower().Contains(lowerTerm)) ||
+                (x.Model != null && x.Model.ToLower().Contains(lowerTerm)));
         }
 
         if (categoryId.HasValue)
         {
             var categoryIdObj = new CategoryId(categoryId.Value);
-            query = query.Where(p => p.Categories.Any(c => c.CategoryId == categoryIdObj));
+            query = query.Where(p => p.Categories != null && p.Categories.Any(c => c.CategoryId == categoryIdObj));
         }
 
         if (minPrice.HasValue)
@@ -99,7 +100,8 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
 
         if (!string.IsNullOrWhiteSpace(brand))
         {
-            query = query.Where(x => x.Brand != null && x.Brand == brand);
+            var lowerBrand = brand.ToLower();
+            query = query.Where(x => x.Brand != null && x.Brand.ToLower() == lowerBrand);
         }
 
         return await query
