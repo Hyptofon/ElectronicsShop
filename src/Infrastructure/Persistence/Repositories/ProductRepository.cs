@@ -69,6 +69,7 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
             .Include(x => x.Images)
             .Include(x => x.Categories)!
                 .ThenInclude(x => x.Category)
+            .Include(x => x.Reviews)
             .AsNoTracking()
             .AsQueryable();
 
