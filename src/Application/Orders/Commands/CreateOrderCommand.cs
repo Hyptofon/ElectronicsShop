@@ -2,7 +2,6 @@
 using Application.Common.Interfaces.Repositories;
 using Application.Orders.Exceptions;
 using Domain.Orders;
-using Domain.Products;
 using LanguageExt;
 using MediatR;
 

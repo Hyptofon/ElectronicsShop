@@ -41,7 +41,7 @@ public class ReviewsController(ISender sender) : ControllerBase
             e => e.ToObjectResult());
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin, Manager")]
     [HttpGet("unmoderated")]
     public async Task<ActionResult<IReadOnlyList<ProductReviewDto>>> GetUnmoderated(
         CancellationToken cancellationToken)
@@ -51,7 +51,7 @@ public class ReviewsController(ISender sender) : ControllerBase
         return reviews.Select(ProductReviewDto.FromDomainModel).ToList();
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin, Manager")]
     [HttpPost("{id:guid}/moderate")]
     public async Task<ActionResult<ProductReviewDto>> Moderate(
         [FromRoute] Guid id,

@@ -2,6 +2,7 @@
 using Api.Modules.Errors;
 using Application.Common.Interfaces.Queries;
 using Application.Products.Commands;
+using Domain.Products;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,6 +42,20 @@ public class ProductsController(ISender sender, IProductQueries productQueries) 
         return products.Select(ProductDto.FromDomainModel).ToList();
     }
 
+    [AllowAnonymous]
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ProductDto>> GetById(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken)
+    {
+        var productOption = await productQueries.GetByIdAsync(new ProductId(id), cancellationToken);
+
+        return productOption.Match<ActionResult<ProductDto>>(
+            p => ProductDto.FromDomainModel(p),
+            () => NotFound());
+    }
+    
+    
     [Authorize(Roles = "Manager,Admin")]
     [HttpPost]
     public async Task<ActionResult<ProductDto>> Create(

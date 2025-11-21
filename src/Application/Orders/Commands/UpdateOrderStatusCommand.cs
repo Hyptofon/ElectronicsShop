@@ -35,11 +35,7 @@ public class UpdateOrderStatusCommandHandler(
     {
         try
         {
-            if (!IsValidStatusTransition(order.Status, newStatus))
-            {
-                return new InvalidOrderStatusTransitionException(order.Id, order.Status, newStatus);
-            }
-
+            
             order.UpdateStatus(newStatus);
             orderRepository.Update(order);
             
@@ -51,18 +47,5 @@ public class UpdateOrderStatusCommandHandler(
         {
             return new UnhandledOrderException(order.Id, exception);
         }
-    }
-
-    private static bool IsValidStatusTransition(OrderStatus currentStatus, OrderStatus newStatus)
-    {
-        return (currentStatus, newStatus) switch
-        {
-            (OrderStatus.Pending, OrderStatus.Processing) => true,
-            (OrderStatus.Pending, OrderStatus.Cancelled) => true,
-            (OrderStatus.Processing, OrderStatus.Shipped) => true,
-            (OrderStatus.Processing, OrderStatus.Cancelled) => true,
-            (OrderStatus.Shipped, OrderStatus.Delivered) => true,
-            _ => false
-        };
     }
 }

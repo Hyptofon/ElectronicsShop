@@ -1,4 +1,5 @@
 ﻿using Domain.Products;
+using LanguageExt;
 
 namespace Application.Common.Interfaces.Queries;
 
@@ -12,4 +13,6 @@ public interface IProductQueries
         decimal? maxPrice,
         string? brand,
         CancellationToken cancellationToken);
+    
+    Task<Option<Product>> GetByIdAsync(ProductId id, CancellationToken cancellationToken);
 }
