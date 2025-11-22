@@ -12,7 +12,6 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
     public async Task<Option<Product>> GetByIdAsync(ProductId id, CancellationToken cancellationToken)
     {
         var entity = await context.Products
-            .AsNoTracking()
             .Include(x => x.Images)
             .Include(x => x.Categories)!
                 .ThenInclude(x => x.Category)

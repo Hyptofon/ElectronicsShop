@@ -43,6 +43,7 @@ public class ProductReview
         Rating = rating;
         Comment = comment;
         UpdatedAt = DateTime.UtcNow;
+        IsModerated = false;
     }
 
     public void Moderate()

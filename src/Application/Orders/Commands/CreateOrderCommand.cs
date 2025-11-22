@@ -38,7 +38,7 @@ public class CreateOrderCommandHandler(
             () => Task.FromResult<Either<OrderException, Order>>(new EmptyCartException()));
     }
 
-    private async Task<Either<OrderException, Order>> CreateOrderFromCart(
+private async Task<Either<OrderException, Order>> CreateOrderFromCart(
         Domain.Cart.Cart cart,
         Guid userId,
         CreateOrderCommand request,
@@ -51,6 +51,7 @@ public class CreateOrderCommandHandler(
         
         try
         {
+            // 1. Генеруємо ID один раз для всього замовлення
             var orderId = OrderId.New();
             var orderItems = new List<OrderItem>();
 
@@ -59,7 +60,7 @@ public class CreateOrderCommandHandler(
                 var productOption = await productRepository.GetByIdAsync(
                     cartItem.ProductId, 
                     cancellationToken);
-                
+
                 if (productOption.IsNone)
                 {
                     return new ProductNotFoundForOrderException(cartItem.ProductId.Value);
@@ -80,11 +81,14 @@ public class CreateOrderCommandHandler(
                 product.DecreaseStock(cartItem.Quantity);
                 productRepository.Update(product);
 
+                // Товари створюються з правильним orderId
                 var orderItem = OrderItem.New(orderId, product.Id, cartItem.Quantity, product.Price);
                 orderItems.Add(orderItem);
             }
 
-            var order = Order.New(userId, request.ShippingAddress, request.Notes, orderItems);
+            // 2. ВИПРАВЛЕНО: Передаємо той самий orderId у метод створення замовлення
+            var order = Order.New(orderId, userId, request.ShippingAddress, request.Notes, orderItems);
+            
             orderRepository.Add(order);
 
             cart.Clear();

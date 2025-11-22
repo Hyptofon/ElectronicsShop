@@ -27,17 +27,16 @@ public class Order
         UpdatedAt = updatedAt;
     }
 
-    public static Order New(Guid userId, string shippingAddress, string? notes, 
+    public static Order New(OrderId id, Guid userId, string shippingAddress, string? notes, 
         ICollection<OrderItem> items)
     {
         var totalAmount = items.Sum(x => x.Quantity * x.UnitPrice);
         
-        var order = new Order(OrderId.New(), userId, OrderStatus.Pending, totalAmount, 
+        var order = new Order(id, userId, OrderStatus.Pending, totalAmount, 
             shippingAddress, notes, DateTime.UtcNow, null)
         {
             Items = items
         };
-
         return order;
     }
 

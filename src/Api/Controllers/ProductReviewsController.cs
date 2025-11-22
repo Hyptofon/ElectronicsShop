@@ -37,4 +37,25 @@ public class ProductReviewsController(ISender sender) : ControllerBase
             r => ProductReviewDto.FromDomainModel(r),
             e => e.ToObjectResult());
     }
+    
+    
+    [Authorize]
+    [HttpGet("my")]
+    public async Task<ActionResult<IReadOnlyList<ProductReviewDto>>> GetMyReview(
+        [FromRoute] Guid productId,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+        {
+            return Unauthorized();
+        }
+
+        var query = new GetProductReviewByUserQuery(productId, userGuid);
+        var reviewOption = await sender.Send(query, cancellationToken);
+        
+        return reviewOption.Match<ActionResult<IReadOnlyList<ProductReviewDto>>>(
+            r => new List<ProductReviewDto> { ProductReviewDto.FromDomainModel(r) },
+            () => new List<ProductReviewDto>());
+    }
 }
