@@ -14,6 +14,8 @@ public class Product
 
     public DateTime CreatedAt { get; }
     public DateTime? UpdatedAt { get; private set; }
+    // для Race Condition (Стан гонитви) при створенні замовлення
+    public byte[] RowVersion { get; private set; }
 
     public ICollection<ProductImage>? Images { get; private set; } = [];
     public ICollection<CategoryProduct>? Categories { get; private set; } = [];

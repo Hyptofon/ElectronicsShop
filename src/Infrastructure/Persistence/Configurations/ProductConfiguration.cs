@@ -23,7 +23,10 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.Price)
             .HasColumnType("decimal(18,2)")
             .IsRequired();
-
+        
+        builder.Property(p => p.RowVersion)
+            .IsRowVersion();
+        
         builder.Property(x => x.StockQuantity)
             .IsRequired();
 

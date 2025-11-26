@@ -29,3 +29,6 @@ public class UnhandledOrderException(OrderId orderId, Exception? innerException)
     
 public class ProductNotFoundForOrderException(Guid productId)
     : OrderException(OrderId.Empty(), $"Product with id {productId} not found for order operation");
+    
+public class OrderConcurrencyException()
+    : OrderException(OrderId.Empty(), "The order could not be placed because the product stock was updated by another user. Please refresh and try again.");

@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Repositories;
 using Application.Orders.Exceptions;
 using Domain.Orders;
@@ -38,7 +39,7 @@ public class CreateOrderCommandHandler(
             () => Task.FromResult<Either<OrderException, Order>>(new EmptyCartException()));
     }
 
-private async Task<Either<OrderException, Order>> CreateOrderFromCart(
+    private async Task<Either<OrderException, Order>> CreateOrderFromCart(
         Domain.Cart.Cart cart,
         Guid userId,
         CreateOrderCommand request,
@@ -48,17 +49,16 @@ private async Task<Either<OrderException, Order>> CreateOrderFromCart(
         {
             return new EmptyCartException();
         }
-        
+
         try
         {
-            // 1. Генеруємо ID один раз для всього замовлення
             var orderId = OrderId.New();
             var orderItems = new List<OrderItem>();
 
             foreach (var cartItem in cart.Items)
             {
                 var productOption = await productRepository.GetByIdAsync(
-                    cartItem.ProductId, 
+                    cartItem.ProductId,
                     cancellationToken);
 
                 if (productOption.IsNone)
@@ -77,26 +77,29 @@ private async Task<Either<OrderException, Order>> CreateOrderFromCart(
                         cartItem.Quantity,
                         product.StockQuantity);
                 }
-
+                
                 product.DecreaseStock(cartItem.Quantity);
+                
                 productRepository.Update(product);
 
-                // Товари створюються з правильним orderId
                 var orderItem = OrderItem.New(orderId, product.Id, cartItem.Quantity, product.Price);
                 orderItems.Add(orderItem);
             }
 
-            // 2. ВИПРАВЛЕНО: Передаємо той самий orderId у метод створення замовлення
             var order = Order.New(orderId, userId, request.ShippingAddress, request.Notes, orderItems);
-            
+
             orderRepository.Add(order);
 
             cart.Clear();
             cartRepository.Update(cart);
-            
+
             await dbContext.SaveChangesAsync(cancellationToken);
 
             return order;
+        }
+        catch (DbUpdateConcurrencyException) 
+        {
+            return new OrderConcurrencyException();
         }
         catch (Exception exception)
         {

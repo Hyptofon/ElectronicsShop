@@ -248,6 +248,13 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("price");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
                     b.Property<int>("StockQuantity")
                         .HasColumnType("integer")
                         .HasColumnName("stock_quantity");
