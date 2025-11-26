@@ -4,9 +4,11 @@ using System.Security.Cryptography;
 using System.Text;
 using Application.Authentication.Interfaces;
 using Domain.Users;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using JwtRegisteredClaimNames = System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames;
 
-namespace Api.Services;
+namespace Infrastructure.Authentication;
 
 public class JwtTokenGenerator(IConfiguration configuration) : IJwtTokenGenerator
 {

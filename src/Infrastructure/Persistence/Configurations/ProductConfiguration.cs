@@ -25,7 +25,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .IsRequired();
         
         builder.Property(p => p.RowVersion)
-            .IsRowVersion();
+            .IsRowVersion()
+            .IsConcurrencyToken()
+            .ValueGeneratedOnAddOrUpdate();
         
         builder.Property(x => x.StockQuantity)
             .IsRequired();

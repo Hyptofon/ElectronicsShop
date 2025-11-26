@@ -88,7 +88,6 @@ public static class SetupModule
     {
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
-        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
     }
 
     private static void AddSwaggerGenConfiguration(this IServiceCollection services)
