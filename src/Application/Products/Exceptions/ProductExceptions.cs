@@ -17,6 +17,9 @@ public class ProductNotFoundException(ProductId productId)
 public class ProductCategoriesNotFoundException()
     : ProductException(ProductId.Empty(), "One or more categories not found");
 
+public class ProductCategoriesNotLoadedException(ProductId productId)
+    : ProductException(productId, "Categories not loaded");
+
 public class InsufficientStockException(ProductId productId, int requested, int available)
     : ProductException(productId, $"Insufficient stock for product {productId}. Requested: {requested}, Available: {available}");
 

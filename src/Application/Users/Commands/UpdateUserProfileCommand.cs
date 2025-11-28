@@ -47,8 +47,7 @@ public class UpdateUserProfileCommandHandler(
             if (!result.Succeeded)
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return new UnhandledUserException(
-                    new InvalidOperationException($"Failed to update user: {errors}"));
+                return new UserUpdateFailedException(errors);
             }
 
             return user;

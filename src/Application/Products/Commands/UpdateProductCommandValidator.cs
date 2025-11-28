@@ -1,6 +1,4 @@
-﻿// D:\Rider прожекти\Practicals\ElectronicsShop\src\Application\Products\Commands\UpdateProductCommandValidator.cs
-
-using Application.Common.Interfaces.Repositories;
+﻿using Application.Common.Interfaces.Repositories;
 using FluentValidation;
 
 namespace Application.Products.Commands;

@@ -14,7 +14,6 @@ public class LocalFileStorageService(ILogger<LocalFileStorageService> logger) : 
         {
             var fullPath = Path.Combine(BaseDirectory, fileFullPath);
             
-            // ✅ ПЕРЕВІРКА НА PATH TRAVERSAL (залишаємо для безпеки)
             var normalizedFullPath = Path.GetFullPath(fullPath);
             var normalizedBaseDirectory = Path.GetFullPath(BaseDirectory);
             

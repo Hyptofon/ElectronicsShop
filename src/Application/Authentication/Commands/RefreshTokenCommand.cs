@@ -24,12 +24,27 @@ public class RefreshTokenCommandHandler(
         RefreshTokenCommand request,
         CancellationToken cancellationToken)
     {
+        var userIdFromToken = jwtTokenGenerator.GetUserIdFromToken(request.Token);
+        
+        if (userIdFromToken == null)
+        {
+            return new InvalidCredentialsException();
+        }
+        
         var user = await userManager.Users
             .FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken, cancellationToken);
-
+        
         if (user == null || user.RefreshToken != request.RefreshToken)
         {
             return new InvalidCredentialsException();
+        }
+        
+        if (user.Id != userIdFromToken)
+        {
+            user.RevokeRefreshToken();
+            await userManager.UpdateAsync(user);
+            
+            return new InvalidCredentialsException(); 
         }
 
         if (user.IsBlocked)
@@ -47,7 +62,7 @@ public class RefreshTokenCommandHandler(
             }
             catch (DbUpdateConcurrencyException)
             {
-                
+                // Ігноруємо конфлікти при відкликанні старого токена
             }
             
             return new InvalidCredentialsException();
@@ -64,14 +79,7 @@ public class RefreshTokenCommandHandler(
             
             if (!updateResult.Succeeded)
             {
-                if (updateResult.Errors.Any(e => e.Code.Contains("Concurrency")))
-                {
-                    return new InvalidCredentialsException();
-                }
-                
-                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
-                return new UnhandledAuthenticationException(
-                    new InvalidOperationException($"Failed to refresh token: {errors}"));
+                return HandleUpdateError(updateResult); 
             }
 
             return new AuthenticationResult
@@ -93,5 +101,16 @@ public class RefreshTokenCommandHandler(
         {
             return new UnhandledAuthenticationException(exception);
         }
+    }
+    private static AuthenticationException HandleUpdateError(IdentityResult result)
+    {
+        if (result.Errors.Any(e => e.Code.Contains("Concurrency")))
+        {
+            return new InvalidCredentialsException();
+        }
+        
+        var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+        return new UnhandledAuthenticationException(
+            new InvalidOperationException($"Failed to refresh token: {errors}"));
     }
 }

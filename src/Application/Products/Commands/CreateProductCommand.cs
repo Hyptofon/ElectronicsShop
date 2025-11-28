@@ -65,7 +65,12 @@ public class CreateProductCommandHandler(
             
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return product;
+            var createdProductOption = await productRepository.GetByIdAsync(product.Id, cancellationToken);
+
+            return createdProductOption.Match<Either<ProductException, Product>>(
+                p => p, 
+                () => new UnhandledProductException(product.Id, new InvalidOperationException("Product not found after creation")) 
+            );
         }
         catch (Exception exception)
         {

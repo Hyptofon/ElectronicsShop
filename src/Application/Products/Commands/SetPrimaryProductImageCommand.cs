@@ -9,7 +9,7 @@ namespace Application.Products.Commands;
 
 public record SetPrimaryProductImageCommand(Guid ProductId, Guid ImageId)
     : IRequest<Either<ProductException, Product>>;
-    
+
 public class SetPrimaryProductImageCommandHandler(
     IProductRepository productRepository,
     IProductImageRepository productImageRepository,
@@ -21,30 +21,34 @@ public class SetPrimaryProductImageCommandHandler(
         CancellationToken cancellationToken)
     {
         var productId = new ProductId(request.ProductId);
-        var imageId = new ProductImageId(request.ImageId);
 
         var productOption = await productRepository.GetByIdAsync(productId, cancellationToken);
+
+        return await productOption.MatchAsync(
+            product => SetPrimaryImage(product, request.ImageId, cancellationToken),
+            () => Task.FromResult<Either<ProductException, Product>>(
+                new ProductNotFoundException(productId)));
+    }
+
+    private async Task<Either<ProductException, Product>> SetPrimaryImage(
+        Product product,
+        Guid rawImageId,
+        CancellationToken cancellationToken)
+    {
+        var imageId = new ProductImageId(rawImageId);
         
-        if (productOption.IsNone)
-        {
-            return new ProductNotFoundException(productId);
-        }
-        
-        var product = productOption.Match(
-            p => p,
-            () => throw new InvalidOperationException("This should never happen"));
-        
-        var currentPrimary = product.Images?.FirstOrDefault(i => i.IsPrimary);
         var newPrimary = product.Images?.FirstOrDefault(i => i.Id == imageId);
-        
+
         if (newPrimary == null)
         {
             return new ProductImageNotFoundException(imageId);
         }
-        
+
+        var currentPrimary = product.Images?.FirstOrDefault(i => i.IsPrimary);
+
         if (currentPrimary != null && currentPrimary.Id == newPrimary.Id)
         {
-            return product; 
+            return product;
         }
 
         var imagesToUpdate = new List<ProductImage>();
@@ -54,25 +58,25 @@ public class SetPrimaryProductImageCommandHandler(
             currentPrimary.RemoveAsPrimary();
             imagesToUpdate.Add(currentPrimary);
         }
-        
+
         newPrimary.SetAsPrimary();
         imagesToUpdate.Add(newPrimary);
 
         try
         {
             productImageRepository.UpdateRange(imagesToUpdate);
-            
+
             await dbContext.SaveChangesAsync(cancellationToken);
-        
-            var updatedProduct = await productRepository.GetByIdAsync(productId, cancellationToken);
+
+            var updatedProductOption = await productRepository.GetByIdAsync(product.Id, cancellationToken);
             
-            return updatedProduct.Match<Either<ProductException, Product>>(
+            return updatedProductOption.Match<Either<ProductException, Product>>(
                 p => p,
-                () => new ProductNotFoundException(productId)); 
+                () => new ProductNotFoundException(product.Id));
         }
         catch (Exception exception)
         {
-            return new UnhandledProductException(productId, exception);
+            return new UnhandledProductException(product.Id, exception);
         }
     }
 }

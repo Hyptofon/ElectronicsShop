@@ -1,4 +1,5 @@
-﻿using Application.Common.Interfaces;
+﻿using Application.Carts.Exceptions;
+using Application.Common.Interfaces;
 using Application.Common.Interfaces.Repositories;
 using Domain.Cart;
 using LanguageExt;
@@ -6,22 +7,28 @@ using MediatR;
 
 namespace Application.Carts.Queries;
 
-public record GetMyCartQuery : IRequest<Option<Cart>>;
+public record GetMyCartQuery : IRequest<Either<CartException, Cart>>;
 
 public class GetMyCartQueryHandler(
     ICartRepository cartRepository,
     ICurrentUserService currentUserService)
-    : IRequestHandler<GetMyCartQuery, Option<Cart>>
+    : IRequestHandler<GetMyCartQuery, Either<CartException, Cart>>
 {
-    public async Task<Option<Cart>> Handle(GetMyCartQuery request, CancellationToken cancellationToken)
+    public async Task<Either<CartException, Cart>> Handle(
+        GetMyCartQuery request, 
+        CancellationToken cancellationToken)
     {
         if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
         {
-            return Option<Cart>.None;
+            return new UnauthorizedCartAccessException(CartId.Empty());
         }
-
-        return await cartRepository.GetByUserIdAsync(
+        
+        var cartOption = await cartRepository.GetByUserIdAsync(
             currentUserService.UserId.Value,
             cancellationToken);
+        return cartOption.Match<Either<CartException, Cart>>(
+            some => some, 
+            () => Cart.New(currentUserService.UserId.Value) 
+        );
     }
 }

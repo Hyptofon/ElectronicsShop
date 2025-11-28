@@ -9,30 +9,34 @@ public static class ProductData
     public static Product FirstTestProduct(List<CategoryId> categoryIds)
     {
         var uniqueId = Guid.NewGuid().ToString()[..8];
+        var productId = ProductId.New(); 
+        
         return Product.New(
-            ProductId.New(),
+            productId, 
             $"Test-{uniqueId}-iPhone 15 Pro",
             "Test latest iPhone model with advanced features",
             999.99m,
             50,
             "Apple",
             "iPhone 15 Pro",
-            categoryIds.Select(id => CategoryProduct.New(id, ProductId.New())).ToList()
+            categoryIds.Select(catId => CategoryProduct.New(catId, productId)).ToList()
         );
     }
 
     public static Product SecondTestProduct(List<CategoryId> categoryIds)
     {
         var uniqueId = Guid.NewGuid().ToString()[..8];
+        var productId = ProductId.New();
+
         return Product.New(
-            ProductId.New(),
+            productId, 
             $"Test-{uniqueId}-Samsung Galaxy S24",
             "Test flagship Samsung smartphone",
             899.99m,
             30,
             "Samsung",
             "Galaxy S24",
-            categoryIds.Select(id => CategoryProduct.New(id, ProductId.New())).ToList()
+            categoryIds.Select(catId => CategoryProduct.New(catId, productId)).ToList()
         );
     }
 

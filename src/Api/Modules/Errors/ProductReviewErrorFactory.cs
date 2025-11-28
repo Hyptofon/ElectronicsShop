@@ -1,6 +1,4 @@
-﻿// D:\Rider прожекти\Practicals\ElectronicsShop\src\Api\Modules\Errors\ProductReviewErrorFactory.cs
-
-using Application.ProductReviews.Exceptions;
+﻿using Application.ProductReviews.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Modules.Errors;

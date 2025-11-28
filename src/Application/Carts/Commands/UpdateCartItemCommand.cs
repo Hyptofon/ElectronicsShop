@@ -49,6 +49,7 @@ public class UpdateCartItemCommandHandler(
             {
                 return new CartItemNotFoundException(cart.Id);
             }
+
             var productOption = await productRepository.GetByIdAsync(
                 cartItem.ProductId, 
                 cancellationToken);
@@ -64,7 +65,8 @@ public class UpdateCartItemCommandHandler(
                             product.StockQuantity);
                     }
 
-                    cartItem.UpdateQuantity(quantity);
+                    cart.UpdateItemQuantity(cartItemId, quantity);
+
                     cartRepository.Update(cart);
                     
                     await dbContext.SaveChangesAsync(cancellationToken);

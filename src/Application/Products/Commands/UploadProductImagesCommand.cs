@@ -67,11 +67,12 @@ public class UploadProductImagesCommandHandler(
             productImageRepository.AddRange(productImages);
             
             await dbContext.SaveChangesAsync(cancellationToken);
-
-            return await productRepository.GetByIdAsync(product.Id, cancellationToken)
-                .Match(
-                    p => p,
-                    () => throw new InvalidOperationException("Product not found after image upload"));
+            
+            var updatedProductOption = await productRepository.GetByIdAsync(product.Id, cancellationToken);
+            
+            return updatedProductOption.Match<Either<ProductException, Product>>(
+                p => p,
+                () => new ProductNotFoundException(product.Id));
         }
         catch (Exception exception)
         {

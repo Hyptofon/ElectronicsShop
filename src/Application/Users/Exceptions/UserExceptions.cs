@@ -17,3 +17,15 @@ public class UnhandledUserException(Exception? innerException)
     
 public class UserBlockedException(string email)
     : UserException($"User {email} is blocked and cannot perform this action");
+
+public class UserBlockFailedException(string errors)
+    : UserException($"Failed to block user: {errors}");
+
+public class UserRoleChangeFailedException(string errors)
+    : UserException($"Failed to change user role: {errors}");
+
+public class UserUnblockFailedException(string errors)
+    : UserException($"Failed to unblock user: {errors}");
+    
+public class UserUpdateFailedException(string errors)
+    : UserException($"Failed to update user profile: {errors}");

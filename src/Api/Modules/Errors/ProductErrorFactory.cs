@@ -14,6 +14,7 @@ public static class ProductErrorFactory
                 ProductAlreadyExistException => StatusCodes.Status409Conflict,
                 ProductNotFoundException => StatusCodes.Status404NotFound,
                 ProductCategoriesNotFoundException => StatusCodes.Status404NotFound,
+                ProductImageNotFoundException => StatusCodes.Status404NotFound, 
                 InsufficientStockException => StatusCodes.Status400BadRequest,
                 UnhandledProductException => StatusCodes.Status500InternalServerError,
                 _ => throw new NotImplementedException("Product error handler not implemented")

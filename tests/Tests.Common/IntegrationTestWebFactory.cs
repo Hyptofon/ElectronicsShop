@@ -36,27 +36,23 @@ public class IntegrationTestWebFactory : WebApplicationFactory<Program>, IAsyncL
 
     public WebApplicationFactory<Program> WithWebHostBuilderMock(
         string role = "User", 
-        string userId = null)
+        string? userId = null)
     {
         return WithWebHostBuilder(builder =>
         {
             builder.ConfigureTestServices(services =>
             {
-                // Видаляємо попередні реєстрації
                 var authDataDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(TestAuthData));
                 if (authDataDescriptor != null)
                 {
                     services.Remove(authDataDescriptor);
                 }
-
-                // ВИПРАВЛЕННЯ: Реєструємо TestAuthData як Singleton
                 services.AddSingleton(new TestAuthData 
                 { 
                     Role = role,
                     UserId = userId ?? Guid.NewGuid().ToString()
                 });
 
-                // Видаляємо стандартну автентифікацію
                 var authDescriptors = services
                     .Where(d => d.ServiceType.FullName?.Contains("Authentication") == true)
                     .ToList();
@@ -65,8 +61,7 @@ public class IntegrationTestWebFactory : WebApplicationFactory<Program>, IAsyncL
                 {
                     services.Remove(descriptor);
                 }
-
-                // ВИПРАВЛЕННЯ: Додаємо тестову схему автентифікації
+                
                 services.AddAuthentication(options =>
                 {
                     options.DefaultAuthenticateScheme = "TestScheme";
@@ -74,7 +69,7 @@ public class IntegrationTestWebFactory : WebApplicationFactory<Program>, IAsyncL
                     options.DefaultScheme = "TestScheme";
                 })
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
-                    "TestScheme", options => { });
+                    "TestScheme", _ => { });
             });
         });
     }

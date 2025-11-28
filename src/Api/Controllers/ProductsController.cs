@@ -127,24 +127,19 @@ public class ProductsController(ISender sender, IProductQueries productQueries) 
         [FromForm] IFormFileCollection? files,
         CancellationToken cancellationToken)
     {
-        if (files == null || files.Count == 0)
-        {
-            return BadRequest("No files uploaded");
-        }
-
-        var imageUploads = files.Select((file, index) => new ProductImageUpload
+        var imageUploads = files?.Select((file, index) => new ProductImageUpload
         {
             OriginalName = file.FileName,
             FileStream = file.OpenReadStream(),
             IsPrimary = index == 0
-        }).ToList();
+        }).ToList() ?? new List<ProductImageUpload>();
 
         var command = new UploadProductImagesCommand
         {
             ProductId = id,
-            Images = imageUploads
+            Images = imageUploads 
         };
-
+        
         var result = await sender.Send(command, cancellationToken);
 
         return result.Match<ActionResult<ProductDto>>(

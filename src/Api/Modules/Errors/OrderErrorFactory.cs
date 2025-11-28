@@ -16,7 +16,7 @@ public static class OrderErrorFactory
                 InsufficientStockForOrderException => StatusCodes.Status400BadRequest,
                 UnauthorizedOrderAccessException => StatusCodes.Status403Forbidden,
                 InvalidOrderStatusTransitionException => StatusCodes.Status400BadRequest,
-                UnhandledOrderException => StatusCodes.Status500InternalServerError,
+                InvalidOrderStatusException => StatusCodes.Status400BadRequest, 
                 _ => throw new NotImplementedException("Order error handler not implemented")
             }
         };

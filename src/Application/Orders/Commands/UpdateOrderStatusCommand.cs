@@ -7,7 +7,7 @@ using MediatR;
 
 namespace Application.Orders.Commands;
 
-public record UpdateOrderStatusCommand(Guid OrderId, OrderStatus NewStatus)
+public record UpdateOrderStatusCommand(Guid OrderId, string NewStatus)
     : IRequest<Either<OrderException, Order>>;
 
 public class UpdateOrderStatusCommandHandler(
@@ -19,11 +19,16 @@ public class UpdateOrderStatusCommandHandler(
         UpdateOrderStatusCommand request,
         CancellationToken cancellationToken)
     {
+        if (!Enum.TryParse<OrderStatus>(request.NewStatus, true, out var newStatus))
+        {
+            return new InvalidOrderStatusException(request.NewStatus);
+        }
+        
         var orderId = new OrderId(request.OrderId);
         var existingOrder = await orderRepository.GetByIdAsync(orderId, cancellationToken);
 
         return await existingOrder.MatchAsync(
-            order => UpdateStatus(order, request.NewStatus, cancellationToken),
+            order => UpdateStatus(order, newStatus, cancellationToken),
             () => Task.FromResult<Either<OrderException, Order>>(
                 new OrderNotFoundException(orderId)));
     }

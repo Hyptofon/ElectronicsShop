@@ -7,6 +7,8 @@ public class UpdateOrderStatusCommandValidator : AbstractValidator<UpdateOrderSt
     public UpdateOrderStatusCommandValidator()
     {
         RuleFor(x => x.OrderId).NotEmpty();
-        RuleFor(x => x.NewStatus).IsInEnum();
+        RuleFor(x => x.NewStatus)
+            .NotEmpty()
+            .WithMessage("Status is required.");
     }
 }

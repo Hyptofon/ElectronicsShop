@@ -30,8 +30,7 @@ public class BlockUserCommandHandler(UserManager<ApplicationUser> userManager)
             if (!result.Succeeded)
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return new UnhandledUserException(
-                    new InvalidOperationException($"Failed to block user: {errors}"));
+                return new UserBlockFailedException(errors);
             }
 
             return user;

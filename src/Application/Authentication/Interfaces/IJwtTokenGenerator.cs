@@ -6,4 +6,6 @@ public interface IJwtTokenGenerator
 {
     string GenerateToken(ApplicationUser user, List<string> roles);
     string GenerateRefreshToken();
+    
+    Guid? GetUserIdFromToken(string token);
 }

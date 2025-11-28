@@ -30,8 +30,7 @@ public class UnblockUserCommandHandler(UserManager<ApplicationUser> userManager)
             if (!result.Succeeded)
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return new UnhandledUserException(
-                    new InvalidOperationException($"Failed to unblock user: {errors}"));
+                return new UserUnblockFailedException(errors);
             }
 
             return user;

@@ -41,6 +41,34 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
+    public async Task ShouldGetAllCategoriesOrderedByName()
+    {
+        // Act
+        var response = await Client.GetAsync(BaseRoute);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categories = await response.ToResponseModel<List<CategoryDto>>();
+        categories.Should().BeInAscendingOrder(c => c.Name);
+    }
+
+    [Fact]
+    public async Task ShouldGetEmptyListWhenNoCategoriesExist()
+    {
+        // Arrange
+        Context.Categories.RemoveRange(Context.Categories);
+        await SaveChangesAsync();
+
+        // Act
+        var response = await Client.GetAsync(BaseRoute);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categories = await response.ToResponseModel<List<CategoryDto>>();
+        categories.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ShouldGetCategoryByIdWithoutAuth()
     {
         // Act
@@ -52,6 +80,28 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         category.Id.Should().Be(_firstTestCategory.Id.Value);
         category.Name.Should().Be(_firstTestCategory.Name);
         category.Description.Should().Be(_firstTestCategory.Description);
+        category.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task ShouldGetCategoryByIdWithNullDescription()
+    {
+        // Arrange
+        var categoryWithoutDescription = Category.New(
+            CategoryId.New(), 
+            "Test-NoDesc-Category", 
+            null
+        );
+        await Context.Categories.AddAsync(categoryWithoutDescription);
+        await SaveChangesAsync();
+
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/{categoryWithoutDescription.Id.Value}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var category = await response.ToResponseModel<CategoryDto>();
+        category.Description.Should().BeNull();
     }
 
     [Fact]
@@ -65,6 +115,16 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ShouldNotGetCategoryByInvalidGuid()
+    {
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/invalid-guid");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound); 
     }
 
     #endregion
@@ -86,13 +146,16 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         
         categoryDto.Name.Should().Be(request.Name);
         categoryDto.Description.Should().Be(request.Description);
+        categoryDto.Id.Should().NotBeEmpty();
+        categoryDto.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
 
         var categoryId = new CategoryId(categoryDto.Id);
         var dbCategory = await Context.Categories
             .FirstOrDefaultAsync(c => c.Id == categoryId);
             
         dbCategory.Should().NotBeNull();
-        dbCategory!.Name.Should().Be(request.Name);
+        dbCategory.Name.Should().Be(request.Name);
+        dbCategory.Description.Should().Be(request.Description);
     }
 
     [Fact]
@@ -106,6 +169,68 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categoryDto = await response.ToResponseModel<CategoryDto>();
+        categoryDto.Name.Should().Be(request.Name);
+    }
+
+    [Fact]
+    public async Task ShouldCreateCategoryWithNullDescription()
+    {
+        // Arrange
+        var request = new CreateCategoryDto("Test-NullDesc-Category", null);
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categoryDto = await response.ToResponseModel<CategoryDto>();
+        categoryDto.Description.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ShouldCreateCategoryWithEmptyDescription()
+    {
+        // Arrange
+        var request = new CreateCategoryDto("Test-EmptyDesc-Category", "");
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ShouldCreateCategoryWithMaxLengthName()
+    {
+        // Arrange
+        var longName = new string('A', 255);
+        var request = new CreateCategoryDto(longName, "Description");
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categoryDto = await response.ToResponseModel<CategoryDto>();
+        categoryDto.Name.Should().HaveLength(255);
+    }
+
+    [Fact]
+    public async Task ShouldCreateCategoryWithMaxLengthDescription()
+    {
+        // Arrange
+        var longDescription = new string('B', 1000);
+        var request = new CreateCategoryDto("Test-LongDesc", longDescription);
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categoryDto = await response.ToResponseModel<CategoryDto>();
+        categoryDto.Description.Should().HaveLength(1000);
     }
 
     [Fact]
@@ -147,13 +272,70 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
+    [Fact]
+    public async Task ShouldNotCreateCategoryBecauseDuplicateNameCaseInsensitive()
+    {
+        // Arrange
+        var request = new CreateCategoryDto(
+            _firstTestCategory.Name.ToUpper(), 
+            "Duplicate category"
+        );
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
     [Theory]
     [InlineData("", "Valid description")]
     [InlineData(null, "Valid description")]
-    public async Task ShouldNotCreateCategoryBecauseInvalidData(string name, string description)
+    public async Task ShouldNotCreateCategoryBecauseEmptyName(string name, string description)
     {
         // Arrange
         var request = new CreateCategoryDto(name, description);
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotCreateCategoryBecauseNameTooLong()
+    {
+        // Arrange
+        var tooLongName = new string('A', 256);
+        var request = new CreateCategoryDto(tooLongName, "Description");
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotCreateCategoryBecauseDescriptionTooLong()
+    {
+        // Arrange
+        var tooLongDescription = new string('B', 1001);
+        var request = new CreateCategoryDto("Test-Category", tooLongDescription);
+
+        // Act
+        var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotCreateCategoryBecauseWhitespaceName()
+    {
+        // Arrange
+        var request = new CreateCategoryDto("   ", "Description");
 
         // Act
         var response = await _adminClient.PostAsJsonAsync(BaseRoute, request);
@@ -183,11 +365,13 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         
         category.Name.Should().Be(request.Name);
         category.Description.Should().Be(request.Description);
+        category.Id.Should().Be(_firstTestCategory.Id.Value);
 
         var dbCategory = await Context.Categories
             .AsNoTracking()
             .FirstAsync(c => c.Id == _firstTestCategory.Id);
         dbCategory.Name.Should().Be(request.Name);
+        dbCategory.Description.Should().Be(request.Description);
     }
 
     [Fact]
@@ -199,6 +383,58 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Act
         var response = await _managerClient.PutAsJsonAsync(
             $"{BaseRoute}/{_secondTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ShouldUpdateCategoryWithSameName()
+    {
+        // Arrange
+        var request = new UpdateCategoryDto(
+            _firstTestCategory.Name, 
+            "Updated description"
+        );
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ShouldUpdateCategoryToNullDescription()
+    {
+        // Arrange
+        var request = new UpdateCategoryDto("Updated-Name", null);
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var category = await response.ToResponseModel<CategoryDto>();
+        category.Description.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ShouldUpdateCategoryWithMaxLengthValues()
+    {
+        // Arrange
+        var longName = new string('U', 255);
+        var longDescription = new string('D', 1000);
+        var request = new UpdateCategoryDto(longName, longDescription);
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
             request);
 
         // Assert
@@ -221,6 +457,21 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseUnauthorized()
+    {
+        // Arrange
+        var request = CategoryData.UpdateTestCategoryDto();
+
+        // Act
+        var response = await Client.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task ShouldNotUpdateCategoryBecauseCategoryNotFound()
     {
         // Arrange
@@ -235,24 +486,9 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
     
     [Fact]
-    public async Task ShouldNotUpdateCategoryBecauseUnauthorized()
-    {
-        // Arrange
-        var request = CategoryData.UpdateTestCategoryDto();
-
-        // Act
-        var response = await Client.PutAsJsonAsync(
-            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
-            request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-    
-    [Fact]
     public async Task ShouldNotUpdateCategoryBecauseDuplicateName()
     {
-        // Arrange: Намагаємося оновити першу категорію, надавши їй ім'я другої
+        // Arrange 
         var request = new UpdateCategoryDto(_secondTestCategory.Name, "Updated description");
 
         // Act
@@ -262,6 +498,88 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict); 
+    }
+
+    [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseDuplicateNameCaseInsensitive()
+    {
+        // Arrange
+        var request = new UpdateCategoryDto(
+            _secondTestCategory.Name.ToLower(), 
+            "Updated description"
+        );
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Theory]
+    [InlineData("", "Valid description")]
+    [InlineData(null, "Valid description")]
+    public async Task ShouldNotUpdateCategoryBecauseEmptyName(string name, string description)
+    {
+        // Arrange
+        var request = new UpdateCategoryDto(name, description);
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseNameTooLong()
+    {
+        // Arrange
+        var tooLongName = new string('U', 256);
+        var request = new UpdateCategoryDto(tooLongName, "Description");
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseDescriptionTooLong()
+    {
+        // Arrange
+        var tooLongDescription = new string('D', 1001);
+        var request = new UpdateCategoryDto("Valid-Name", tooLongDescription);
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestCategory.Id.Value}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotUpdateCategoryBecauseEmptyGuid()
+    {
+        // Arrange
+        var request = CategoryData.UpdateTestCategoryDto();
+
+        // Act
+        var response = await _adminClient.PutAsJsonAsync(
+            $"{BaseRoute}/{Guid.Empty}", 
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     #endregion
@@ -276,6 +594,8 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var category = await response.ToResponseModel<CategoryDto>();
+        category.Id.Should().Be(_secondTestCategory.Id.Value);
 
         var dbCategory = await Context.Categories
             .FirstOrDefaultAsync(c => c.Id == _secondTestCategory.Id);
@@ -286,7 +606,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     public async Task ShouldDeleteCategoryAsManager()
     {
         // Arrange
-        var tempCategory = Category.New(CategoryId.New(), "Temp Category", "Temp");
+        var tempCategory = Category.New(CategoryId.New(), "Temp-Manager-Category", "Temp");
         await Context.Categories.AddAsync(tempCategory);
         await SaveChangesAsync();
 
@@ -295,6 +615,10 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var dbCategory = await Context.Categories
+            .FirstOrDefaultAsync(c => c.Id == tempCategory.Id);
+        dbCategory.Should().BeNull();
     }
 
     [Fact]
@@ -305,6 +629,20 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        
+        var dbCategory = await Context.Categories
+            .FirstOrDefaultAsync(c => c.Id == _firstTestCategory.Id);
+        dbCategory.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ShouldNotDeleteCategoryBecauseUnauthorized()
+    {
+        // Act
+        var response = await Client.DeleteAsync($"{BaseRoute}/{_firstTestCategory.Id.Value}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -320,7 +658,18 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task ShouldNotDeleteCategoryBecauseEmptyGuid()
+    {
+        // Act
+        var response = await _adminClient.DeleteAsync($"{BaseRoute}/{Guid.Empty}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     #endregion
+    
 
     public async Task InitializeAsync()
     {
@@ -331,6 +680,7 @@ public class CategoriesControllerTests : BaseIntegrationTest, IAsyncLifetime
     public async Task DisposeAsync()
     {
         Context.Categories.RemoveRange(Context.Categories);
+        Context.CategoryProducts.RemoveRange(Context.CategoryProducts);
         
         await SaveChangesAsync();
     }

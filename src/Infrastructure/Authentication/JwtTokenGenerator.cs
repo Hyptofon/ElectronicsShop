@@ -47,4 +47,45 @@ public class JwtTokenGenerator(IConfiguration configuration) : IJwtTokenGenerato
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
     }
+    
+    public Guid? GetUserIdFromToken(string token)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.UTF8.GetBytes(configuration["JwtSettings:SecretKey"]!);
+
+        var tokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = false, 
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = configuration["JwtSettings:Issuer"],
+            ValidAudience = configuration["JwtSettings:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+
+        try
+        {
+            var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
+            
+            if (securityToken is not JwtSecurityToken jwtSecurityToken ||
+                !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return null;
+            }
+            var userIdString = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value 
+                               ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (Guid.TryParse(userIdString, out var userId))
+            {
+                return userId;
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

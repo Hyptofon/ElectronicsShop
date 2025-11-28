@@ -23,7 +23,26 @@ public static class OrderData
             "456 Test Avenue, Test Town, TT 67890",
             "Please deliver during business hours"
         );
+    
+    public static OrderItem CreateTestOrderItem(Guid orderId, Guid productId) =>
+        OrderItem.New(new OrderId(orderId), new ProductId(productId), 2, 999.99m);
+    
+    public static OrderItem CreateTestOrderItem(Guid productId) =>
+        CreateTestOrderItem(Guid.NewGuid(), productId);
 
     public static UpdateOrderStatusDto CreateUpdateOrderStatusDto(string status) =>
         new(status);
+    
+    // Додай цей метод, щоб не створювати список айтемів вручну в кожному тесті
+    public static Order CreateOrderWithOneItem(Guid userId, Guid productId, int quantity = 1)
+    {
+        var orderId = OrderId.New();
+        var items = new List<OrderItem>
+        {
+            CreateTestOrderItem(orderId, new ProductId(productId)) // Використовуємо існуючий метод
+        };
+        // Тут ми трохи хардкодимо створення, бо основний метод приймає List
+        return CreateTestOrder(userId, items); 
+    }
+
 }

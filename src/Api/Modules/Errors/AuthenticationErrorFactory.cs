@@ -16,6 +16,7 @@ public static class AuthenticationErrorFactory
                 UserNotFoundException => StatusCodes.Status404NotFound,
                 UserBlockedException => StatusCodes.Status403Forbidden,
                 InvalidRoleException => StatusCodes.Status400BadRequest,
+                TokenRefreshFailedException => StatusCodes.Status500InternalServerError,
                 UnhandledAuthenticationException => StatusCodes.Status500InternalServerError,
                 _ => throw new NotImplementedException("Authentication error handler not implemented")
             }

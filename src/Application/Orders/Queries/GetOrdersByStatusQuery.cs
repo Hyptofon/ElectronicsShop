@@ -1,18 +1,27 @@
 ﻿using Application.Common.Interfaces.Repositories;
+using Application.Orders.Exceptions;
 using Domain.Orders;
+using LanguageExt;
 using MediatR;
 
 namespace Application.Orders.Queries;
 
-public record GetOrdersByStatusQuery(OrderStatus Status) : IRequest<IReadOnlyList<Order>>;
+public record GetOrdersByStatusQuery(string Status) 
+    : IRequest<Either<OrderException, IReadOnlyList<Order>>>;
 
 public class GetOrdersByStatusQueryHandler(IOrderRepository orderRepository)
-    : IRequestHandler<GetOrdersByStatusQuery, IReadOnlyList<Order>>
+    : IRequestHandler<GetOrdersByStatusQuery, Either<OrderException, IReadOnlyList<Order>>>
 {
-    public async Task<IReadOnlyList<Order>> Handle(
+    public async Task<Either<OrderException, IReadOnlyList<Order>>> Handle(
         GetOrdersByStatusQuery request,
         CancellationToken cancellationToken)
     {
-        return await orderRepository.GetByStatusAsync(request.Status, cancellationToken);
+        if (!Enum.TryParse<OrderStatus>(request.Status, true, out var orderStatus))
+        {
+            return new InvalidOrderStatusException(request.Status);
+        }
+        var orders = await orderRepository.GetByStatusAsync(orderStatus, cancellationToken);
+        
+        return orders.ToList(); 
     }
 }

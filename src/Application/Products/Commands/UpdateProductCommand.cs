@@ -23,7 +23,6 @@ public record UpdateProductCommand : IRequest<Either<ProductException, Product>>
 public class UpdateProductCommandHandler(
     IProductRepository productRepository,
     ICategoryRepository categoryRepository,
-    ICategoryProductRepository categoryProductRepository,
     IApplicationDbContext dbContext)
     : IRequestHandler<UpdateProductCommand, Either<ProductException, Product>>
 {
@@ -63,34 +62,39 @@ public class UpdateProductCommandHandler(
                 request.Brand,
                 request.Model);
 
-            var existingCategoryProducts = await categoryProductRepository
-                .GetByProductIdAsync(product.Id, cancellationToken);
-
-            var categoriesToRemove = existingCategoryProducts
-                .Where(x => !categoryIds.Contains(x.CategoryId))
-                .ToList();
-
-            var categoriesToAdd = categoryIds
-                .Where(categoryId => !existingCategoryProducts.Any(x => x.CategoryId == categoryId))
-                .Select(categoryId => CategoryProduct.New(categoryId, product.Id))
-                .ToList();
-
-            if (categoriesToRemove.Any())
+            // ✅ ВИПРАВЛЕНО: Використовуємо новий спеціальний тип помилки
+            if (product.Categories == null) 
             {
-                categoryProductRepository.RemoveRange(categoriesToRemove);
+                 return new ProductCategoriesNotLoadedException(product.Id);
             }
 
-            if (categoriesToAdd.Any())
+            var itemsToRemove = product.Categories
+                .Where(cp => !categoryIds.Contains(cp.CategoryId))
+                .ToList();
+
+            foreach (var item in itemsToRemove)
             {
-                categoryProductRepository.AddRange(categoriesToAdd);
+                product.Categories.Remove(item);
             }
-            product.Categories?.Clear();
+            
+            var currentCategoryIds = product.Categories.Select(c => c.CategoryId).ToList();
+            var newCategoryIds = categoryIds.Except(currentCategoryIds);
+
+            foreach (var newId in newCategoryIds)
+            {
+                product.Categories.Add(CategoryProduct.New(newId, product.Id));
+            }
+            
             productRepository.Update(product);
             
             await dbContext.SaveChangesAsync(cancellationToken);
-            
-            
-            return product;
+
+            var updatedProductOption = await productRepository.GetByIdAsync(product.Id, cancellationToken);
+
+            return updatedProductOption.Match<Either<ProductException, Product>>(
+                p => p,
+                () => new ProductNotFoundException(product.Id)
+            );
         }
         catch (Exception exception)
         {

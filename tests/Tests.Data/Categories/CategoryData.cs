@@ -5,7 +5,6 @@ namespace Tests.Data.Categories;
 
 public static class CategoryData
 {
-    // ВИПРАВЛЕННЯ: Додаємо timestamp для унікальності
     public static Category FirstTestCategory(string prefix = "Test") 
     {
         var uniqueId = Guid.NewGuid().ToString()[..8];

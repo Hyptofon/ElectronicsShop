@@ -4,7 +4,7 @@ namespace Tests.Data.Users;
 
 public static class UserData
 {
-    public static ApplicationUser CreateTestUser(string role = ApplicationRole.User)
+    public static ApplicationUser CreateTestUser(string role = ApplicationRole.User, Guid? id = null)
     {
         var user = ApplicationUser.Create(
             $"test-{role.ToLower()}@test.com",
@@ -12,10 +12,15 @@ public static class UserData
             "User",
             $"test{role.ToLower()}"
         );
+        if (id.HasValue)
+        {
+            user.Id = id.Value;
+        }
+
         return user;
     }
-
-    public static ApplicationUser CreateAdminUser() => CreateTestUser(ApplicationRole.Admin);
-    public static ApplicationUser CreateManagerUser() => CreateTestUser(ApplicationRole.Manager);
-    public static ApplicationUser CreateRegularUser() => CreateTestUser(ApplicationRole.User);
+    
+    public static ApplicationUser CreateAdminUser(Guid? id = null) => CreateTestUser(ApplicationRole.Admin, id);
+    public static ApplicationUser CreateManagerUser(Guid? id = null) => CreateTestUser(ApplicationRole.Manager, id);
+    public static ApplicationUser CreateRegularUser(Guid? id = null) => CreateTestUser(ApplicationRole.User, id);
 }

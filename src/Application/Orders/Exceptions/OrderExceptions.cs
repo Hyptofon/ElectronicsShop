@@ -32,3 +32,6 @@ public class ProductNotFoundForOrderException(Guid productId)
     
 public class OrderConcurrencyException()
     : OrderException(OrderId.Empty(), "The order could not be placed because the product stock was updated by another user. Please refresh and try again.");
+
+public class InvalidOrderStatusException(string status)
+    : OrderException(OrderId.Empty(), $"Invalid order status: {status}");

@@ -13,37 +13,31 @@ public abstract class BaseIntegrationTest : IClassFixture<IntegrationTestWebFact
     protected readonly HttpClient Client;
     protected readonly HttpClient AuthenticatedClient;
     protected readonly IntegrationTestWebFactory Factory;
-    private readonly IServiceScope _scope;
 
     protected BaseIntegrationTest(IntegrationTestWebFactory factory)
     {
         Factory = factory;
         
-        _scope = factory.Services.CreateScope();
-        Context = _scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        
-        // Клієнт без авторизації
+        var scope = factory.Services.CreateScope();
+        Context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
         Client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
-
-        // Клієнт з авторизацією (за замовчуванням User роль)
-        AuthenticatedClient = CreateAuthenticatedClient("User");
+        
+        AuthenticatedClient = CreateAuthenticatedClient();
     }
 
-    protected HttpClient CreateAuthenticatedClient(string role = "User", string userId = null)
+    protected HttpClient CreateAuthenticatedClient(string role = "User", string? userId = null)
     {
-        // ВИПРАВЛЕННЯ: Створюємо factory з правильними налаштуваннями
         var authenticatedFactory = Factory.WithWebHostBuilderMock(role, userId ?? Guid.NewGuid().ToString());
-        
-        // Створюємо клієнт від нового factory
+
         var client = authenticatedFactory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
-
-        // Додаємо Authorization header
+        
         client.DefaultRequestHeaders.Authorization = 
             new AuthenticationHeaderValue(scheme: "TestScheme");
 

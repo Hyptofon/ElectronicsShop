@@ -2,7 +2,6 @@
 using Api.Modules.Errors;
 using Application.Orders.Commands;
 using Application.Orders.Queries;
-using Domain.Orders;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -83,14 +82,13 @@ public class OrdersController(ISender sender) : ControllerBase
         [FromRoute] string status,
         CancellationToken cancellationToken)
     {
-        if (!Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
-        {
-            return BadRequest("Invalid order status");
-        }
+        var query = new GetOrdersByStatusQuery(status);
+        
+        var result = await sender.Send(query, cancellationToken);
 
-        var query = new GetOrdersByStatusQuery(orderStatus);
-        var orders = await sender.Send(query, cancellationToken);
-        return orders.Select(OrderDto.FromDomainModel).ToList();
+        return result.Match<ActionResult<IReadOnlyList<OrderDto>>>(
+            orders => orders.Select(OrderDto.FromDomainModel).ToList(),
+            error => error.ToObjectResult());
     }
 
     [Authorize(Roles = "Manager,Admin")]
@@ -100,12 +98,7 @@ public class OrdersController(ISender sender) : ControllerBase
         [FromBody] UpdateOrderStatusDto request,
         CancellationToken cancellationToken)
     {
-        if (!Enum.TryParse<OrderStatus>(request.Status, true, out var orderStatus))
-        {
-            return BadRequest("Invalid order status");
-        }
-
-        var command = new UpdateOrderStatusCommand(id, orderStatus);
+        var command = new UpdateOrderStatusCommand(id, request.Status);
         var result = await sender.Send(command, cancellationToken);
 
         return result.Match<ActionResult<OrderDto>>(

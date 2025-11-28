@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using Api.Filters;
 using Api.Services;
-using Application.Authentication.Interfaces;
 using Application.Common.Interfaces;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

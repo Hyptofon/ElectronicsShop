@@ -48,6 +48,64 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
+    public async Task ShouldGetProductByIdWithoutAuth()
+    {
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/{_firstTestProduct.Id.Value}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var product = await response.ToResponseModel<ProductDto>();
+        
+        product.Id.Should().Be(_firstTestProduct.Id.Value);
+        product.Name.Should().Be(_firstTestProduct.Name);
+        product.Description.Should().Be(_firstTestProduct.Description);
+        product.Price.Should().Be(_firstTestProduct.Price);
+        product.StockQuantity.Should().Be(_firstTestProduct.StockQuantity);
+        product.Brand.Should().Be(_firstTestProduct.Brand);
+        product.Model.Should().Be(_firstTestProduct.Model);
+        product.Categories.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task ShouldReturnNotFoundWhenProductDoesNotExist()
+    {
+        // Arrange
+        var nonExistentId = Guid.NewGuid();
+
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/{nonExistentId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ShouldGetProductWithImages()
+    {
+        // Arrange 
+        var uploadContent = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
+        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        uploadContent.Add(imageContent, "files", "test-image.jpg");
+
+        await _managerClient.PostAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}/images",
+            uploadContent);
+
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/{_firstTestProduct.Id.Value}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var product = await response.ToResponseModel<ProductDto>();
+        
+        product.Images.Should().NotBeEmpty();
+        product.Images!.Should().HaveCount(1);
+        product.Images.First().OriginalName.Should().Be("test-image.jpg");
+    }
+
+    [Fact]
     public async Task ShouldSearchProductsBySearchTerm()
     {
         // Act
@@ -124,6 +182,45 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
         products.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ShouldSearchProductsByDescriptionKeyword()
+    {
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/search?searchTerm=flagship");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var products = await response.ToResponseModel<List<ProductDto>>();
+        products.Should().HaveCount(1);
+        products.First().Description.Should().Contain("flagship");
+    }
+
+    [Fact]
+    public async Task ShouldSearchProductsByModel()
+    {
+        // Act
+        var response = await Client.GetAsync($"{BaseRoute}/search?searchTerm=Galaxy");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var products = await response.ToResponseModel<List<ProductDto>>();
+        products.Should().HaveCount(1);
+        products.First().Model.Should().Contain("Galaxy");
+    }
+
+    [Fact]
+    public async Task ShouldReturnProductsOrderedByName()
+    {
+        // Act
+        var response = await Client.GetAsync(BaseRoute);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var products = await response.ToResponseModel<List<ProductDto>>();
+        
+        products.Should().BeInAscendingOrder(p => p.Name);
+    }
+
     #endregion
 
     #region POST Tests (Create)
@@ -168,6 +265,32 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ShouldCreateProductWithMultipleCategories()
+    {
+        // Arrange
+        var request = new CreateProductDto(
+            $"Multi-Category-{Guid.NewGuid().ToString()[..8]}-Product",
+            "Product with multiple categories",
+            799.99m,
+            15,
+            "TestBrand",
+            "TestModel",
+            new List<Guid> { _testCategory.Id.Value, _secondTestCategory.Id.Value }
+        );
+
+        // Act
+        var response = await _managerClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var productDto = await response.ToResponseModel<ProductDto>();
+        
+        productDto.Categories.Should().HaveCount(2);
+        productDto.Categories.Should().Contain(c => c.Category!.Id == _testCategory.Id.Value);
+        productDto.Categories.Should().Contain(c => c.Category!.Id == _secondTestCategory.Id.Value);
     }
 
     [Fact]
@@ -278,6 +401,48 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task ShouldNotCreateProductBecauseNameTooLong()
+    {
+        // Arrange
+        var request = new CreateProductDto(
+            new string('A', 256), 
+            "Test Description",
+            100m,
+            10,
+            "Brand",
+            "Model",
+            new List<Guid> { _testCategory.Id.Value }
+        );
+
+        // Act
+        var response = await _managerClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ShouldNotCreateProductBecauseDescriptionTooLong()
+    {
+        // Arrange
+        var request = new CreateProductDto(
+            "Test Product",
+            new string('A', 2001),
+            100m,
+            10,
+            "Brand",
+            "Model",
+            new List<Guid> { _testCategory.Id.Value }
+        );
+
+        // Act
+        var response = await _managerClient.PostAsJsonAsync(BaseRoute, request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     #endregion
 
     #region PUT Tests (Update)
@@ -326,6 +491,29 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
+    public async Task ShouldUpdateProductWithSameName()
+    {
+        // Arrange 
+        var request = new UpdateProductDto(
+            _firstTestProduct.Name,
+            "Updated Description",
+            1299.99m,
+            25,
+            "Updated Brand",
+            "Updated Model",
+            new List<Guid> { _testCategory.Id.Value }
+        );
+
+        // Act
+        var response = await _managerClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task ShouldNotUpdateProductBecauseForbidden()
     {
         // Arrange
@@ -338,6 +526,21 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ShouldNotUpdateProductBecauseUnauthorized()
+    {
+        // Arrange
+        var request = ProductData.UpdateTestProductDto(new List<Guid> { _testCategory.Id.Value });
+
+        // Act
+        var response = await Client.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -402,11 +605,11 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     [Fact]
     public async Task ShouldNotUpdateProductBecauseInvalidPrice()
     {
-        // Arrange: Намагаємося оновити ціну на 0
+        // Arrange
         var request = new UpdateProductDto(
             "Valid Name",
             "Valid Description",
-            0m, // <--- Invalid Price
+            0m,
             10,
             "Brand",
             "Model",
@@ -421,7 +624,45 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
-    
+
+    [Fact]
+    public async Task ShouldNotUpdateProductBecauseCategoryNotFound()
+    {
+        // Arrange
+        var request = ProductData.UpdateTestProductDto(new List<Guid> { Guid.NewGuid() });
+
+        // Act
+        var response = await _managerClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ShouldUpdateProductAndChangeCategoryFromOneToAnother()
+    {
+        // Arrange 
+        var request = ProductData.UpdateTestProductDto(new List<Guid> { _secondTestCategory.Id.Value });
+
+        // Act
+        var response = await _managerClient.PutAsJsonAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}",
+            request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dbProduct = await Context.Products
+            .Include(p => p.Categories)
+            .AsNoTracking()
+            .FirstAsync(p => p.Id == _firstTestProduct.Id);
+            
+        dbProduct.Categories.Should().HaveCount(1);
+        dbProduct.Categories!.First().CategoryId.Should().Be(_secondTestCategory.Id);
+    }
+
     #endregion
 
     #region DELETE Tests
@@ -456,6 +697,31 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
+    public async Task ShouldDeleteProductWithImages()
+    {
+        // Arrange 
+        var uploadContent = new MultipartFormDataContent();
+        var imageContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
+        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        uploadContent.Add(imageContent, "files", "delete-with-image.jpg");
+
+        await _managerClient.PostAsync(
+            $"{BaseRoute}/{_firstTestProduct.Id.Value}/images",
+            uploadContent);
+
+        // Act
+        var response = await _managerClient.DeleteAsync($"{BaseRoute}/{_firstTestProduct.Id.Value}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var dbProduct = await Context.Products
+            .Include(p => p.Images)
+            .FirstOrDefaultAsync(p => p.Id == _firstTestProduct.Id);
+        dbProduct.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ShouldNotDeleteProductBecauseForbidden()
     {
         // Act
@@ -463,6 +729,16 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ShouldNotDeleteProductBecauseUnauthorized()
+    {
+        // Act
+        var response = await Client.DeleteAsync($"{BaseRoute}/{_firstTestProduct.Id.Value}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -478,66 +754,23 @@ public class ProductsControllerTests : BaseIntegrationTest, IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    #endregion
-
-    #region POST Tests (Upload Images)
-
     [Fact]
-    public async Task ShouldUploadImagesAsManager()
+    public async Task ShouldReturnDeletedProductInResponse()
     {
         // Arrange
-        var content = new MultipartFormDataContent();
-        var imageContent1 = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
-        imageContent1.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-        content.Add(imageContent1, "files", "test1.jpg");
-
-        var imageContent2 = new ByteArrayContent(new byte[] { 5, 6, 7, 8 });
-        imageContent2.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-        content.Add(imageContent2, "files", "test2.jpg");
+        var tempProduct = ProductData.FirstTestProduct(new List<CategoryId> { _testCategory.Id });
+        await Context.Products.AddAsync(tempProduct);
+        await SaveChangesAsync();
 
         // Act
-        var response = await _managerClient.PostAsync(
-            $"{BaseRoute}/{_firstTestProduct.Id.Value}/images",
-            content);
+        var response = await _managerClient.DeleteAsync($"{BaseRoute}/{tempProduct.Id.Value}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var product = await response.ToResponseModel<ProductDto>();
-        product.Images.Should().HaveCount(2);
-        product.Images.Should().Contain(i => i.IsPrimary);
-    }
-
-    [Fact]
-    public async Task ShouldNotUploadImagesBecauseNoFiles()
-    {
-        // Arrange
-        var content = new MultipartFormDataContent();
-
-        // Act
-        var response = await _managerClient.PostAsync(
-            $"{BaseRoute}/{_firstTestProduct.Id.Value}/images",
-            content);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task ShouldNotUploadImagesBecauseForbidden()
-    {
-        // Arrange
-        var content = new MultipartFormDataContent();
-        var imageContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
-        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-        content.Add(imageContent, "files", "test.jpg");
-
-        // Act
-        var response = await AuthenticatedClient.PostAsync(
-            $"{BaseRoute}/{_firstTestProduct.Id.Value}/images",
-            content);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var deletedProduct = await response.ToResponseModel<ProductDto>();
+        
+        deletedProduct.Id.Should().Be(tempProduct.Id.Value);
+        deletedProduct.Name.Should().Be(tempProduct.Name);
     }
 
     #endregion

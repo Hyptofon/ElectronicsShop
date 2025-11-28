@@ -10,7 +10,7 @@ namespace Application.Products.Commands;
 
 public record DeleteProductImageCommand(Guid ProductId, Guid ImageId)
     : IRequest<Either<ProductException, Unit>>;
-    
+
 public class DeleteProductImageCommandHandler(
     IProductRepository productRepository,
     IProductImageRepository productImageRepository,
@@ -23,18 +23,21 @@ public class DeleteProductImageCommandHandler(
         CancellationToken cancellationToken)
     {
         var productId = new ProductId(request.ProductId);
-        var imageId = new ProductImageId(request.ImageId);
 
-        var productOption = await productRepository.GetByIdAsync(productId, cancellationToken);
+        var existingProduct = await productRepository.GetByIdAsync(productId, cancellationToken);
+        
+        return await existingProduct.MatchAsync(
+            product => DeleteImage(product, request.ImageId, cancellationToken),
+            () => Task.FromResult<Either<ProductException, Unit>>(
+                new ProductNotFoundException(productId)));
+    }
 
-        if (productOption.IsNone)
-        {
-            return new ProductNotFoundException(productId);
-        }
-
-        var product = productOption.Match(
-            p => p,
-            () => throw new InvalidOperationException("This should never happen"));
+    private async Task<Either<ProductException, Unit>> DeleteImage(
+        Product product,
+        Guid rawImageId,
+        CancellationToken cancellationToken)
+    {
+        var imageId = new ProductImageId(rawImageId);
         
         var image = product.Images?.FirstOrDefault(i => i.Id == imageId);
 
@@ -42,7 +45,7 @@ public class DeleteProductImageCommandHandler(
         {
             return new ProductImageNotFoundException(imageId);
         }
-
+        
         if (image.IsPrimary && product.Images!.Count > 1)
         {
             var newPrimary = product.Images.FirstOrDefault(i => i.Id != image.Id);
@@ -56,6 +59,7 @@ public class DeleteProductImageCommandHandler(
         try
         {
             await fileStorage.DeleteAsync(image.GetFilePath(), cancellationToken);
+            
             productImageRepository.Delete(image);
             
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -64,7 +68,7 @@ public class DeleteProductImageCommandHandler(
         }
         catch (Exception exception)
         {
-            return new UnhandledProductException(productId, exception);
+            return new UnhandledProductException(product.Id, exception);
         }
     }
 }

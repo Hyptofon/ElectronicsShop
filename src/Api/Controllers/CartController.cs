@@ -17,11 +17,11 @@ public class CartController(ISender sender) : ControllerBase
     public async Task<ActionResult<CartDto>> GetMyCart(CancellationToken cancellationToken)
     {
         var query = new GetMyCartQuery();
-        var cart = await sender.Send(query, cancellationToken);
-
-        return cart.Match<ActionResult<CartDto>>(
+        var result = await sender.Send(query, cancellationToken);
+        
+        return result.Match<ActionResult<CartDto>>(
             c => CartDto.FromDomainModel(c),
-            () => NotFound("Cart not found"));
+            e => e.ToObjectResult());
     }
 
     [HttpPost("items")]

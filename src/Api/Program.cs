@@ -12,7 +12,6 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// 2. Pipeline обробки запитів
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

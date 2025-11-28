@@ -41,8 +41,7 @@ public class ChangeUserRoleCommandHandler(
             if (!result.Succeeded)
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return new UnhandledUserException(
-                    new InvalidOperationException($"Failed to change user role: {errors}"));
+                return new UserRoleChangeFailedException(errors);
             }
 
             return user;

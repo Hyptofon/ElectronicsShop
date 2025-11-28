@@ -1,5 +1,4 @@
-﻿// src/Application/Authentication/Commands/RefreshTokenCommandValidator.cs
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace Application.Authentication.Commands;
 

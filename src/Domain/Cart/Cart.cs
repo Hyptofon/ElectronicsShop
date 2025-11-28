@@ -35,6 +35,17 @@ public class Cart
         
         UpdatedAt = DateTime.UtcNow;
     }
+    
+    public void UpdateItemQuantity(Guid cartItemId, int quantity)
+    {
+        var item = Items.FirstOrDefault(x => x.Id.Value == cartItemId);
+        
+        if (item != null)
+        {
+            item.UpdateQuantity(quantity);
+            UpdatedAt = DateTime.UtcNow;
+        }
+    }
 
     public void RemoveItem(Guid cartItemId)
     {

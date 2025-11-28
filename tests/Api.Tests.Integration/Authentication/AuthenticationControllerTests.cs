@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common;
-using Tests.Data.Authentication; 
+using Tests.Data.Authentication;
 
 namespace Api.Tests.Integration.Authentication;
 
@@ -47,7 +47,11 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         // Перевірка в БД
         var user = await _userManager.FindByEmailAsync(request.Email);
         user.Should().NotBeNull();
-        user!.Email.Should().Be(request.Email);
+        user.Email.Should().Be(request.Email);
+        user.FirstName.Should().Be(request.FirstName);
+        user.LastName.Should().Be(request.LastName);
+        user.RefreshToken.Should().NotBeNullOrEmpty();
+        user.RefreshTokenExpiryTime.Should().BeAfter(DateTime.UtcNow);
     }
 
     [Fact]
@@ -68,6 +72,8 @@ public class AuthenticationControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("already exists");
     }
 
     [Theory]
@@ -89,6 +95,52 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task Register_WithPasswordMissingUppercase_ShouldReturnBadRequest()
+    {
+        // Arrange
+        var request = AuthData.CreateRegisterDto(
+            email: "test@test.com",
+            password: "test@123" 
+        );
+
+        // Act
+        var response = await Client.PostAsJsonAsync($"{BaseRoute}/register", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_WithPasswordMissingSpecialCharacter_ShouldReturnBadRequest()
+    {
+        // Arrange
+        var request = AuthData.CreateRegisterDto(
+            email: "test@test.com",
+            password: "Test1234" 
+        );
+
+        // Act
+        var response = await Client.PostAsJsonAsync($"{BaseRoute}/register", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_WithTooLongEmail_ShouldReturnBadRequest()
+    {
+        // Arrange
+        var longEmail = new string('a', 250) + "@test.com"; // >256 символів
+        var request = AuthData.CreateRegisterDto(email: longEmail);
+
+        // Act
+        var response = await Client.PostAsJsonAsync($"{BaseRoute}/register", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     #endregion
 
     #region Login Tests
@@ -102,7 +154,7 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         await _userManager.CreateAsync(user, AuthData.DefaultPassword);
         await _userManager.AddToRoleAsync(user, ApplicationRole.User);
 
-        var request = AuthData.CreateLoginDto(email, AuthData.DefaultPassword);
+        var request = AuthData.CreateLoginDto(email);
 
         // Act
         var response = await Client.PostAsJsonAsync($"{BaseRoute}/login", request);
@@ -115,6 +167,13 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         authResponse.RefreshToken.Should().NotBeNullOrEmpty();
         authResponse.Email.Should().Be(email);
         authResponse.Roles.Should().Contain(ApplicationRole.User);
+        authResponse.UserId.Should().Be(user.Id);
+
+        // Перевірка що refresh token збережено в БД
+        Context.ChangeTracker.Clear();
+        var dbUser = await Context.Users.FirstAsync(u => u.Email == email);
+        dbUser.RefreshToken.Should().Be(authResponse.RefreshToken);
+        dbUser.RefreshTokenExpiryTime.Should().BeAfter(DateTime.UtcNow);
     }
 
     [Fact]
@@ -132,6 +191,8 @@ public class AuthenticationControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Invalid email or password");
     }
 
     [Fact]
@@ -157,13 +218,15 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         user.Block();
         await _userManager.UpdateAsync(user);
 
-        var request = AuthData.CreateLoginDto(email, AuthData.DefaultPassword);
+        var request = AuthData.CreateLoginDto(email);
 
         // Act
         var response = await Client.PostAsJsonAsync($"{BaseRoute}/login", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("blocked");
     }
 
     [Theory]
@@ -181,6 +244,37 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task Login_MultipleTimes_ShouldUpdateRefreshToken()
+    {
+        // Arrange
+        var email = "login_multiple@test.com";
+        var user = ApplicationUser.Create(email, "Multiple", "User", "multipleuser");
+        await _userManager.CreateAsync(user, AuthData.DefaultPassword);
+        await _userManager.AddToRoleAsync(user, ApplicationRole.User);
+
+        var request = AuthData.CreateLoginDto(email);
+
+        // Act - перший логін
+        var firstResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", request);
+        var firstAuth = await firstResponse.ToResponseModel<AuthenticationResponseDto>();
+
+        await Task.Delay(100); // невелика затримка
+
+        // Act - другий логін
+        var secondResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", request);
+        var secondAuth = await secondResponse.ToResponseModel<AuthenticationResponseDto>();
+
+        // Assert
+        firstAuth.RefreshToken.Should().NotBe(secondAuth.RefreshToken);
+        firstAuth.Token.Should().NotBe(secondAuth.Token);
+
+        // Перевірка що в БД останній токен
+        Context.ChangeTracker.Clear();
+        var dbUser = await Context.Users.FirstAsync(u => u.Email == email);
+        dbUser.RefreshToken.Should().Be(secondAuth.RefreshToken);
+    }
+
     #endregion
     
     #region Refresh Token Tests
@@ -194,10 +288,12 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         await _userManager.CreateAsync(user, AuthData.DefaultPassword);
         await _userManager.AddToRoleAsync(user, ApplicationRole.User);
 
-        // 1. Логін (API запише токен в БД)
-        var loginRequest = AuthData.CreateLoginDto(email, AuthData.DefaultPassword);
+        // Логін
+        var loginRequest = AuthData.CreateLoginDto(email);
         var loginResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", loginRequest);
         var originalAuth = await loginResponse.ToResponseModel<AuthenticationResponseDto>();
+
+        await Task.Delay(100); // щоб токени точно відрізнялись
 
         // Act
         var refreshRequest = AuthData.CreateRefreshTokenDto(originalAuth.Token, originalAuth.RefreshToken);
@@ -209,11 +305,14 @@ public class AuthenticationControllerTests : BaseIntegrationTest
 
         newAuth.Token.Should().NotBe(originalAuth.Token);
         newAuth.RefreshToken.Should().NotBe(originalAuth.RefreshToken);
+        newAuth.Email.Should().Be(email);
+        newAuth.UserId.Should().Be(originalAuth.UserId);
         
         // Перевірка в БД
         Context.ChangeTracker.Clear();
         var dbUser = await Context.Users.FirstAsync(u => u.Email == email);
         dbUser.RefreshToken.Should().Be(newAuth.RefreshToken);
+        dbUser.RefreshTokenExpiryTime.Should().BeAfter(DateTime.UtcNow);
     }
 
     [Fact]
@@ -239,11 +338,11 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         await _userManager.AddToRoleAsync(user, ApplicationRole.User);
         
         // Логін
-        var loginRequest = AuthData.CreateLoginDto(email, AuthData.DefaultPassword);
+        var loginRequest = AuthData.CreateLoginDto(email);
         var loginResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", loginRequest);
         var originalAuth = await loginResponse.ToResponseModel<AuthenticationResponseDto>();
         
-        // 2. Симулюємо відкликання
+        // Відкликання токену
         Context.ChangeTracker.Clear();
         var dbUser = await Context.Users.FirstAsync(u => u.Email == email);
         dbUser.RevokeRefreshToken();
@@ -270,11 +369,11 @@ public class AuthenticationControllerTests : BaseIntegrationTest
         await _userManager.CreateAsync(user, AuthData.DefaultPassword);
         await _userManager.AddToRoleAsync(user, ApplicationRole.User);
         
-        var loginRequest = AuthData.CreateLoginDto(email, AuthData.DefaultPassword);
+        var loginRequest = AuthData.CreateLoginDto(email);
         var loginResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", loginRequest);
         var originalAuth = await loginResponse.ToResponseModel<AuthenticationResponseDto>();
         
-        // 2. Блокуємо користувача
+        
         Context.ChangeTracker.Clear();
         var dbUser = await Context.Users.FirstAsync(u => u.Email == email);
         dbUser.Block();
@@ -286,6 +385,8 @@ public class AuthenticationControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("blocked");
     }
     
     [Theory]
@@ -301,6 +402,105 @@ public class AuthenticationControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task RefreshToken_WithExpiredRefreshToken_ShouldReturnUnauthorizedAndRevokeToken()
+    {
+        // Arrange
+        var email = "refresh_expired@test.com";
+        var user = ApplicationUser.Create(email, "Refresh", "User", "refreshexpireduser");
+        await _userManager.CreateAsync(user, AuthData.DefaultPassword);
+        await _userManager.AddToRoleAsync(user, ApplicationRole.User);
+        
+        var loginRequest = AuthData.CreateLoginDto(email);
+        var loginResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", loginRequest);
+        var originalAuth = await loginResponse.ToResponseModel<AuthenticationResponseDto>();
+        
+        // Симуляція закінчення терміну дії токену
+        Context.ChangeTracker.Clear();
+        var dbUser = await Context.Users.FirstAsync(u => u.Email == email);
+        dbUser.SetRefreshToken(originalAuth.RefreshToken, DateTime.UtcNow.AddDays(-1)); 
+        await Context.SaveChangesAsync();
+
+        // Act
+        var refreshRequest = AuthData.CreateRefreshTokenDto(originalAuth.Token, originalAuth.RefreshToken);
+        var response = await Client.PostAsJsonAsync($"{BaseRoute}/refresh", refreshRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        
+        // Перевірка що токен відкликано
+        Context.ChangeTracker.Clear();
+        var dbUserAfter = await Context.Users.FirstAsync(u => u.Email == email);
+        dbUserAfter.RefreshToken.Should().BeNull();
+        dbUserAfter.RefreshTokenExpiryTime.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RefreshToken_MultipleTimes_ShouldInvalidateOldTokens()
+    {
+        // Arrange
+        var email = "refresh_multiple@test.com";
+        var user = ApplicationUser.Create(email, "Refresh", "User", "refreshmultipleuser");
+        await _userManager.CreateAsync(user, AuthData.DefaultPassword);
+        await _userManager.AddToRoleAsync(user, ApplicationRole.User);
+        
+        var loginRequest = AuthData.CreateLoginDto(email);
+        var loginResponse = await Client.PostAsJsonAsync($"{BaseRoute}/login", loginRequest);
+        var firstAuth = await loginResponse.ToResponseModel<AuthenticationResponseDto>();
+
+        await Task.Delay(100);
+
+        // Перше оновлення
+        var firstRefreshRequest = AuthData.CreateRefreshTokenDto(firstAuth.Token, firstAuth.RefreshToken);
+        var firstRefreshResponse = await Client.PostAsJsonAsync($"{BaseRoute}/refresh", firstRefreshRequest);
+        var secondAuth = await firstRefreshResponse.ToResponseModel<AuthenticationResponseDto>();
+
+        await Task.Delay(100);
+
+        // Act - спроба використати старий refresh token
+        var oldRefreshRequest = AuthData.CreateRefreshTokenDto(firstAuth.Token, firstAuth.RefreshToken);
+        var oldRefreshResponse = await Client.PostAsJsonAsync($"{BaseRoute}/refresh", oldRefreshRequest);
+
+        // Assert
+        oldRefreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // Перевірка що новий токен все ще працює
+        var newRefreshRequest = AuthData.CreateRefreshTokenDto(secondAuth.Token, secondAuth.RefreshToken);
+        var newRefreshResponse = await Client.PostAsJsonAsync($"{BaseRoute}/refresh", newRefreshRequest);
+        newRefreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task RefreshToken_WithDifferentUserTokens_ShouldNotWork()
+    {
+        // Arrange
+        var email1 = "user1@test.com";
+        var user1 = ApplicationUser.Create(email1, "User", "One", "userone");
+        await _userManager.CreateAsync(user1, AuthData.DefaultPassword);
+        await _userManager.AddToRoleAsync(user1, ApplicationRole.User);
+
+        var email2 = "user2@test.com";
+        var user2 = ApplicationUser.Create(email2, "User", "Two", "usertwo");
+        await _userManager.CreateAsync(user2, AuthData.DefaultPassword);
+        await _userManager.AddToRoleAsync(user2, ApplicationRole.User);
+
+        // Логін обох користувачів
+        var login1 = await Client.PostAsJsonAsync($"{BaseRoute}/login", 
+            AuthData.CreateLoginDto(email1));
+        var auth1 = await login1.ToResponseModel<AuthenticationResponseDto>();
+
+        var login2 = await Client.PostAsJsonAsync($"{BaseRoute}/login", 
+            AuthData.CreateLoginDto(email2));
+        var auth2 = await login2.ToResponseModel<AuthenticationResponseDto>();
+
+        // Act - спроба використати токен першого користувача з refresh token другого
+        var mixedRequest = AuthData.CreateRefreshTokenDto(auth1.Token, auth2.RefreshToken);
+        var response = await Client.PostAsJsonAsync($"{BaseRoute}/refresh", mixedRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     #endregion
