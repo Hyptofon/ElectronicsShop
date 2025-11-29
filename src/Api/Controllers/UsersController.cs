@@ -56,7 +56,7 @@ public class UsersController(ISender sender) : ControllerBase
             e => e.ToObjectResult());
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin, Manager")]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<UserDto>>> GetAll(
         CancellationToken cancellationToken)
@@ -66,7 +66,7 @@ public class UsersController(ISender sender) : ControllerBase
         return users.Select(UserDto.FromDetailsDto).ToList();
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin, Manager")]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<UserDto>> GetById(
         [FromRoute] Guid id,

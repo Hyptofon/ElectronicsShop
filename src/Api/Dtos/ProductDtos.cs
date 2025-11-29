@@ -13,6 +13,8 @@ public record ProductDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     IReadOnlyList<ProductImageDto>? Images,
+    double AverageRating,
+    int ReviewCount,
     IReadOnlyList<CategoryProductDto>? Categories)
 {
     public static ProductDto FromDomainModel(Product product)
@@ -31,6 +33,8 @@ public record ProductDto(
             product.CreatedAt,
             product.UpdatedAt,
             product.Images?.Select(ProductImageDto.FromDomainModel).ToList() ?? [],
+            averageRating,
+            reviews.Count,
             product.Categories?.Select(CategoryProductDto.FromDomainModel).ToList() ?? []);
     }
 }

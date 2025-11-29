@@ -12,6 +12,7 @@ public record RemoveFromCartCommand(Guid CartItemId)
 
 public class RemoveFromCartCommandHandler(
     ICartRepository cartRepository,
+    IProductRepository productRepository,
     ICurrentUserService currentUserService,
     IApplicationDbContext dbContext)
     : IRequestHandler<RemoveFromCartCommand, Either<CartException, Cart>>
@@ -41,6 +42,18 @@ public class RemoveFromCartCommandHandler(
     {
         try
         {
+            var cartItem = cart.Items.FirstOrDefault(i => i.Id.Value == cartItemId);
+
+            if (cartItem != null)
+            {
+                var productOption = await productRepository.GetByIdAsync(cartItem.ProductId, cancellationToken);
+                productOption.IfSome(product =>
+                {
+                    product.IncreaseStock(cartItem.Quantity);
+                    productRepository.Update(product);
+                });
+            }
+
             cart.RemoveItem(cartItemId);
             cartRepository.Update(cart);
             

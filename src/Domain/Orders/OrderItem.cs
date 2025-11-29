@@ -11,6 +11,7 @@ public class OrderItem
     public decimal UnitPrice { get; private set; }
 
     public Order? Order { get; private set; }
+    public Product? Product { get; private set; }
 
     private OrderItem(OrderItemId id, OrderId orderId, ProductId productId, 
         int quantity, decimal unitPrice)

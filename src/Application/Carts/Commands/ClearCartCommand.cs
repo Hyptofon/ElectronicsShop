@@ -11,6 +11,7 @@ public record ClearCartCommand : IRequest<Either<CartException, Cart>>;
 
 public class ClearCartCommandHandler(
     ICartRepository cartRepository,
+    IProductRepository productRepository,
     ICurrentUserService currentUserService,
     IApplicationDbContext dbContext)
     : IRequestHandler<ClearCartCommand, Either<CartException, Cart>>
@@ -39,6 +40,16 @@ public class ClearCartCommandHandler(
     {
         try
         {
+            foreach (var item in cart.Items)
+            {
+                var productOption = await productRepository.GetByIdAsync(item.ProductId, cancellationToken);
+                productOption.IfSome(product =>
+                {
+                    product.IncreaseStock(item.Quantity);
+                    productRepository.Update(product);
+                });
+            }
+
             cart.Clear();
             cartRepository.Update(cart);
             

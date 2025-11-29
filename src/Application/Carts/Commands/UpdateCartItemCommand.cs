@@ -38,7 +38,7 @@ public class UpdateCartItemCommandHandler(
     private async Task<Either<CartException, Cart>> UpdateItem(
         Cart cart,
         Guid cartItemId,
-        int quantity,
+        int newQuantity,
         CancellationToken cancellationToken)
     {
         try
@@ -57,16 +57,27 @@ public class UpdateCartItemCommandHandler(
             return await productOption.MatchAsync(
                 async product =>
                 {
-                    if (product.StockQuantity < quantity)
+                    int quantityDiff = newQuantity - cartItem.Quantity;
+
+                    if (quantityDiff > 0)
                     {
-                        return new InsufficientStockForCartException(
-                            product.Id.Value,
-                            quantity,
-                            product.StockQuantity);
+                        if (product.StockQuantity < quantityDiff)
+                        {
+                            return new InsufficientStockForCartException(
+                                product.Id.Value,
+                                quantityDiff,
+                                product.StockQuantity);
+                        }
+                        product.DecreaseStock(quantityDiff);
+                    }
+                    else if (quantityDiff < 0)
+                    {
+                        product.IncreaseStock(Math.Abs(quantityDiff));
                     }
 
-                    cart.UpdateItemQuantity(cartItemId, quantity);
+                    productRepository.Update(product);
 
+                    cart.UpdateItemQuantity(cartItemId, newQuantity);
                     cartRepository.Update(cart);
                     
                     await dbContext.SaveChangesAsync(cancellationToken);

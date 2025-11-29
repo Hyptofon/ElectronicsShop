@@ -53,6 +53,9 @@ public class AddToCartCommandHandler(
                     quantity,
                     product.StockQuantity);
             }
+            
+            product.DecreaseStock(quantity); 
+            productRepository.Update(product); 
 
             var cartOption = await cartRepository.GetByUserIdAsync(userId, cancellationToken);
 
@@ -72,7 +75,7 @@ public class AddToCartCommandHandler(
             {
                 cartRepository.Update(cart);
             }
-
+            
             await dbContext.SaveChangesAsync(cancellationToken);
 
             return cart;

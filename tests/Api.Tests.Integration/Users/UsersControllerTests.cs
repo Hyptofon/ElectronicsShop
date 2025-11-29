@@ -281,7 +281,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
         var response = await managerClient.GetAsync(BaseRoute);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -807,7 +807,7 @@ public class UsersControllerTests : BaseIntegrationTest, IAsyncLifetime
 
         // Assert
         userResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        managerResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        managerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         adminResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 

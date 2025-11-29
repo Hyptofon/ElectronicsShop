@@ -31,9 +31,11 @@ public class OrderRepository(ApplicationDbContext context) : IOrderRepository
         CancellationToken cancellationToken)
     {
         return await context.Orders
-            .Include(x => x.Items)
             .AsNoTracking()
             .Where(x => x.UserId == userId)
+            .Include(x => x.Items)
+            .ThenInclude(i => i.Product)     
+            .ThenInclude(p => p!.Images)  
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
     }
