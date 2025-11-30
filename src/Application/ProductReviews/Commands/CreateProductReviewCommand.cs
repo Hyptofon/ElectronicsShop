@@ -29,20 +29,16 @@ public class CreateProductReviewCommandHandler(
         var productId = new ProductId(request.ProductId);
         var userId = currentUserService.UserId.Value;
 
-        // 1. Отримуємо існуючий відгук
         var existingReviewOption = await reviewRepository.GetByProductAndUserAsync(
             productId,
             userId,
             cancellationToken);
 
         var product = await productRepository.GetByIdAsync(productId, cancellationToken);
-
-        // 2. Якщо продукт існує, вирішуємо: оновити старий чи створити новий відгук
+        
         return await product.MatchAsync(
             p => existingReviewOption.Match(
-                // Якщо відгук Є - оновлюємо його
                 review => UpdateExistingReview(review, request, cancellationToken),
-                // Якщо відгуку НЕМАЄ - створюємо новий
                 () => CreateEntity(request, p.Id, userId, cancellationToken)
             ),
             () => Task.FromResult<Either<ProductReviewException, ProductReview>>(
@@ -77,10 +73,9 @@ public class CreateProductReviewCommandHandler(
     {
         try
         {
-            // Використовуємо метод UpdateReview з твоєї Domain моделі
             review.UpdateReview(request.Rating, request.Comment);
         
-            reviewRepository.Update(review); // Переконайся, що цей метод є в репозиторії або просто SaveChanges
+            reviewRepository.Update(review);
             await dbContext.SaveChangesAsync(cancellationToken);
 
             return review;

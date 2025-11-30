@@ -61,8 +61,7 @@ public class UpdateProductCommandHandler(
                 request.StockQuantity,
                 request.Brand,
                 request.Model);
-
-            // ✅ ВИПРАВЛЕНО: Використовуємо новий спеціальний тип помилки
+            
             if (product.Categories == null) 
             {
                  return new ProductCategoriesNotLoadedException(product.Id);
