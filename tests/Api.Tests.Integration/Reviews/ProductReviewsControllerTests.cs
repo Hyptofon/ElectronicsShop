@@ -280,18 +280,23 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateReview_WhenAlreadyExists_ShouldReturnConflict()
+    public async Task CreateReview_WhenAlreadyExists_ShouldUpdateExisting()
     {
         // Arrange
-        var request = ReviewData.CreateTestReviewDto(); 
+        var request1 = ReviewData.CreateTestReviewDto(); 
+        await _userClient.PostAsJsonAsync(_baseRoute, request1);
+       
+        var request2 = new CreateProductReviewDto(1, "Updated via create endpoint");
 
         // Act
-        var response = await _userClient.PostAsJsonAsync(_baseRoute, request);
+        var response = await _userClient.PostAsJsonAsync(_baseRoute, request2);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("already exists");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    
+        var reviewDto = await response.ToResponseModel<ProductReviewDto>();
+        reviewDto.Rating.Should().Be(1);
+        reviewDto.Comment.Should().Be("Updated via create endpoint");
     }
 
     [Fact]
@@ -482,23 +487,22 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         dbReviews.Select(r => r.UserId).Distinct().Should().HaveCountGreaterThanOrEqualTo(3);
     }
     [Fact]
-    public async Task SameUserCannotReviewSameProductTwice()
+    public async Task SameUser_CanUpdateReview_BySendingPostRequestAgain()
     {
         // Arrange
         var request1 = new CreateProductReviewDto(5, "First review");
         var request2 = new CreateProductReviewDto(4, "Second review");
 
         // Act 
+
         var response1 = await _otherUserClient.PostAsJsonAsync(_baseRoute, request1); 
-    
         var response2 = await _userClient.PostAsJsonAsync(_baseRoute, request2); 
-    
         var response3 = await _otherUserClient.PostAsJsonAsync(_baseRoute, request1);
 
         // Assert
         response1.StatusCode.Should().Be(HttpStatusCode.OK); 
-        response2.StatusCode.Should().Be(HttpStatusCode.Conflict); 
-        response3.StatusCode.Should().Be(HttpStatusCode.Conflict); 
+        response2.StatusCode.Should().Be(HttpStatusCode.OK); 
+        response3.StatusCode.Should().Be(HttpStatusCode.OK); 
     }
 
     [Fact]

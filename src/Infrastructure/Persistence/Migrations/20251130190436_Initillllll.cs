@@ -5,17 +5,17 @@
 namespace Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class AddRowVersionToUser : Migration
+    public partial class Initillllll : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<byte[]>(
                 name: "row_version",
-                table: "users",
+                table: "products",
                 type: "bytea",
-                rowVersion: true,
-                nullable: true);
+                nullable: false,
+                defaultValue: new byte[0]);
         }
 
         /// <inheritdoc />
@@ -23,7 +23,7 @@ namespace Infrastructure.Persistence.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "row_version",
-                table: "users");
+                table: "products");
         }
     }
 }

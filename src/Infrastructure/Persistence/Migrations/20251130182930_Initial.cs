@@ -70,7 +70,8 @@ namespace Infrastructure.Persistence.Migrations
                     brand = table.Column<string>(type: "varchar(100)", nullable: true),
                     model = table.Column<string>(type: "varchar(100)", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "timezone('utc', now())"),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -101,6 +102,9 @@ namespace Infrastructure.Persistence.Migrations
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "timezone('utc', now())"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     is_blocked = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    refresh_token = table.Column<string>(type: "varchar(500)", nullable: true),
+                    refresh_token_expiry_time = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true),
                     user_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     normalized_user_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -142,6 +146,30 @@ namespace Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "category_products",
+                columns: table => new
+                {
+                    category_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    product_id = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_category_products", x => new { x.category_id, x.product_id });
+                    table.ForeignKey(
+                        name: "fk_category_products_categories_id",
+                        column: x => x.category_id,
+                        principalTable: "categories",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_category_products_products_id",
+                        column: x => x.product_id,
+                        principalTable: "products",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "order_items",
                 columns: table => new
                 {
@@ -160,26 +188,8 @@ namespace Infrastructure.Persistence.Migrations
                         principalTable: "orders",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "category_products",
-                columns: table => new
-                {
-                    category_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_category_products", x => new { x.category_id, x.product_id });
                     table.ForeignKey(
-                        name: "fk_category_products_categories_id",
-                        column: x => x.category_id,
-                        principalTable: "categories",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_category_products_products_id",
+                        name: "fk_order_items_products_product_id",
                         column: x => x.product_id,
                         principalTable: "products",
                         principalColumn: "id",
@@ -363,6 +373,11 @@ namespace Infrastructure.Persistence.Migrations
                 name: "ix_order_items_order_id",
                 table: "order_items",
                 column: "order_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_order_items_product_id",
+                table: "order_items",
+                column: "product_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_orders_created_at",

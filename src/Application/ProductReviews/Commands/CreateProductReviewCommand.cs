@@ -28,21 +28,23 @@ public class CreateProductReviewCommandHandler(
 
         var productId = new ProductId(request.ProductId);
         var userId = currentUserService.UserId.Value;
-        
-        var existingReview = await reviewRepository.GetByProductAndUserAsync(
+
+        // 1. Отримуємо існуючий відгук
+        var existingReviewOption = await reviewRepository.GetByProductAndUserAsync(
             productId,
             userId,
             cancellationToken);
 
-        if (existingReview.IsSome)
-        {
-            return new ProductReviewAlreadyExistsException(productId, userId);
-        }
-
         var product = await productRepository.GetByIdAsync(productId, cancellationToken);
 
+        // 2. Якщо продукт існує, вирішуємо: оновити старий чи створити новий відгук
         return await product.MatchAsync(
-            p => CreateEntity(request, p.Id, userId, cancellationToken),
+            p => existingReviewOption.Match(
+                // Якщо відгук Є - оновлюємо його
+                review => UpdateExistingReview(review, request, cancellationToken),
+                // Якщо відгуку НЕМАЄ - створюємо новий
+                () => CreateEntity(request, p.Id, userId, cancellationToken)
+            ),
             () => Task.FromResult<Either<ProductReviewException, ProductReview>>(
                 new ProductNotFoundForReviewException(productId)));
     }
@@ -65,6 +67,27 @@ public class CreateProductReviewCommandHandler(
         catch (Exception exception)
         {
             return new UnhandledProductReviewException(ProductReviewId.Empty(), exception);
+        }
+    }
+    
+    private async Task<Either<ProductReviewException, ProductReview>> UpdateExistingReview(
+        ProductReview review,
+        CreateProductReviewCommand request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Використовуємо метод UpdateReview з твоєї Domain моделі
+            review.UpdateReview(request.Rating, request.Comment);
+        
+            reviewRepository.Update(review); // Переконайся, що цей метод є в репозиторії або просто SaveChanges
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return review;
+        }
+        catch (Exception exception)
+        {
+            return new UnhandledProductReviewException(review.Id, exception);
         }
     }
 }
