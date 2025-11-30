@@ -20,6 +20,13 @@ public class DeleteCategoryCommandHandler(
         CancellationToken cancellationToken)
     {
         var categoryId = new CategoryId(request.CategoryId);
+        
+        var hasProducts = await categoryRepository.HasProductsAsync(categoryId, cancellationToken);
+        if (hasProducts)
+        {
+            return new CategoryCannotBeDeletedException(categoryId);
+        }
+        
         var existingCategory = await categoryRepository.GetByIdAsync(categoryId, cancellationToken);
 
         return await existingCategory.MatchAsync(
@@ -34,11 +41,6 @@ public class DeleteCategoryCommandHandler(
     {
         try
         {
-            if (await categoryRepository.HasProductsAsync(category.Id, cancellationToken))
-            {
-                return new CategoryHasProductsException(category.Id);
-            }
-
             categoryRepository.Delete(category);
             
             await dbContext.SaveChangesAsync(cancellationToken);

@@ -1,5 +1,6 @@
 ﻿using Application.Common.Interfaces.Repositories;
 using Domain.Cart;
+using Domain.Products;
 using LanguageExt;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,5 +34,23 @@ public class CartRepository(ApplicationDbContext context) : ICartRepository
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         return entity ?? Option<Cart>.None;
+    }
+    
+    public async Task<bool> HasCartItemsWithProductAsync(
+        ProductId productId,
+        CancellationToken cancellationToken)
+    {
+        return await context.CartItems
+            .AsNoTracking()
+            .AnyAsync(ci => ci.ProductId == productId, cancellationToken);
+    }
+
+    public async Task<bool> ExistsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        return await context.Carts
+            .AsNoTracking()
+            .AnyAsync(c => c.UserId == userId, cancellationToken);
     }
 }

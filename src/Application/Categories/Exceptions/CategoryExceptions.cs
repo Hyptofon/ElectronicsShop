@@ -19,3 +19,5 @@ public class CategoryHasProductsException(CategoryId categoryId)
 
 public class UnhandledCategoryException(CategoryId categoryId, Exception? innerException = null)
     : CategoryException(categoryId, "Unexpected error occurred", innerException);
+public class CategoryCannotBeDeletedException(CategoryId categoryId)
+    : CategoryException(categoryId, $"Category {categoryId} cannot be deleted because it contains products.");

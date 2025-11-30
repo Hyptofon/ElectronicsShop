@@ -1,5 +1,6 @@
 ﻿using Application.Common.Interfaces.Repositories;
 using Domain.Orders;
+using Domain.Products;
 using LanguageExt;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,5 +60,14 @@ public class OrderRepository(ApplicationDbContext context) : IOrderRepository
             .Where(x => x.Status == status)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
+    }
+    
+    public async Task<bool> HasOrderItemsWithProductAsync(
+        ProductId productId,
+        CancellationToken cancellationToken)
+    {
+        return await context.OrderItems
+            .AsNoTracking()
+            .AnyAsync(oi => oi.ProductId == productId, cancellationToken);
     }
 }

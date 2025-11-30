@@ -481,7 +481,6 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         dbReviews.Should().HaveCountGreaterThanOrEqualTo(3); 
         dbReviews.Select(r => r.UserId).Distinct().Should().HaveCountGreaterThanOrEqualTo(3);
     }
-
     [Fact]
     public async Task SameUserCannotReviewSameProductTwice()
     {
@@ -490,16 +489,16 @@ public class ProductReviewsControllerTests : BaseIntegrationTest, IAsyncLifetime
         var request2 = new CreateProductReviewDto(4, "Second review");
 
         // Act 
-        var response1 = await _userClient.PostAsJsonAsync(_baseRoute, request1);
-        
-        var response2 = await _otherUserClient.PostAsJsonAsync(_baseRoute, request2);
-        
-        var response3 = await _otherUserClient.PostAsJsonAsync(_baseRoute, new CreateProductReviewDto(3, "Third"));
+        var response1 = await _otherUserClient.PostAsJsonAsync(_baseRoute, request1); 
+    
+        var response2 = await _userClient.PostAsJsonAsync(_baseRoute, request2); 
+    
+        var response3 = await _otherUserClient.PostAsJsonAsync(_baseRoute, request1);
 
         // Assert
-        response1.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        response2.StatusCode.Should().Be(HttpStatusCode.OK);
-        response3.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response1.StatusCode.Should().Be(HttpStatusCode.OK); 
+        response2.StatusCode.Should().Be(HttpStatusCode.Conflict); 
+        response3.StatusCode.Should().Be(HttpStatusCode.Conflict); 
     }
 
     [Fact]

@@ -15,6 +15,10 @@ public static class UserErrorFactory
                 UnauthorizedUserAccessException => StatusCodes.Status403Forbidden,
                 UserBlockedException => StatusCodes.Status403Forbidden,
                 InvalidRoleException => StatusCodes.Status400BadRequest,
+                UserCannotBeDeletedDueToCartException => StatusCodes.Status409Conflict,
+                UserCannotBeDeletedDueToOrdersException => StatusCodes.Status409Conflict,
+                UserCannotBeDeletedDueToReviewsException => StatusCodes.Status409Conflict,
+                UserDeleteFailedException => StatusCodes.Status500InternalServerError,
                 UnhandledUserException => StatusCodes.Status500InternalServerError,
                 _ => throw new NotImplementedException("User error handler not implemented")
             }

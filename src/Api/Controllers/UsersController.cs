@@ -122,4 +122,18 @@ public class UsersController(ISender sender) : ControllerBase
             user => UserDto.FromDomainModel(user, new List<string> { request.RoleName }),
             e => e.ToObjectResult());
     }
+    
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<UserDto>> Delete(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken)
+    {
+        var command = new DeleteUserCommand(id);
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.Match<ActionResult<UserDto>>(
+            user => UserDto.FromDomainModel(user, new List<string>()),
+            e => e.ToObjectResult());
+    }
 }

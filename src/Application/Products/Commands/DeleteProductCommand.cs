@@ -12,6 +12,9 @@ public record DeleteProductCommand(Guid ProductId)
 
 public class DeleteProductCommandHandler(
     IProductRepository productRepository,
+    IOrderRepository orderRepository,
+    ICartRepository cartRepository,
+    IProductReviewRepository reviewRepository,
     IFileStorage fileStorage,
     IApplicationDbContext dbContext)
     : IRequestHandler<DeleteProductCommand, Either<ProductException, Product>>
@@ -21,6 +24,25 @@ public class DeleteProductCommandHandler(
         CancellationToken cancellationToken)
     {
         var productId = new ProductId(request.ProductId);
+        
+        var hasOrderItems = await orderRepository.HasOrderItemsWithProductAsync(productId, cancellationToken);
+        if (hasOrderItems)
+        {
+            return new ProductCannotBeDeletedDueToOrdersException(productId);
+        }
+        
+        var hasCartItems = await cartRepository.HasCartItemsWithProductAsync(productId, cancellationToken);
+        if (hasCartItems)
+        {
+            return new ProductCannotBeDeletedDueToCartsException(productId);
+        }
+        
+        var hasReviews = await reviewRepository.HasReviewsForProductAsync(productId, cancellationToken);
+        if (hasReviews)
+        {
+            return new ProductCannotBeDeletedDueToReviewsException(productId);
+        }
+        
         var existingProduct = await productRepository.GetByIdAsync(productId, cancellationToken);
 
         return await existingProduct.MatchAsync(

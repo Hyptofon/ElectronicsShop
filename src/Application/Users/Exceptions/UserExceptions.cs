@@ -29,3 +29,14 @@ public class UserUnblockFailedException(string errors)
     
 public class UserUpdateFailedException(string errors)
     : UserException($"Failed to update user profile: {errors}");
+public class UserCannotBeDeletedDueToCartException(Guid userId)
+    : UserException($"User {userId} cannot be deleted because user has an active shopping cart");
+
+public class UserCannotBeDeletedDueToOrdersException(Guid userId)
+    : UserException($"User {userId} cannot be deleted because user has existing orders");
+
+public class UserCannotBeDeletedDueToReviewsException(Guid userId)
+    : UserException($"User {userId} cannot be deleted because user has written product reviews");
+    
+public class UserDeleteFailedException(string errors)
+    : UserException($"Failed to delete user: {errors}");

@@ -13,7 +13,7 @@ public static class CategoryErrorFactory
             {
                 CategoryAlreadyExistException => StatusCodes.Status409Conflict,
                 CategoryNotFoundException => StatusCodes.Status404NotFound,
-                CategoryHasProductsException => StatusCodes.Status400BadRequest,
+                CategoryCannotBeDeletedException => StatusCodes.Status409Conflict,
                 UnhandledCategoryException => StatusCodes.Status500InternalServerError,
                 _ => throw new NotImplementedException("Category error handler not implemented")
             }

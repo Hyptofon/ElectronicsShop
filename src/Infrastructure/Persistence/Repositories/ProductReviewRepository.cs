@@ -63,4 +63,22 @@ public class ProductReviewRepository(ApplicationDbContext context) : IProductRev
     
         return entity ?? Option<ProductReview>.None;
     }
+    
+    public async Task<bool> ExistsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        return await context.ProductReviews
+            .AsNoTracking()
+            .AnyAsync(r => r.UserId == userId, cancellationToken);
+    }
+
+    public async Task<bool> HasReviewsForProductAsync(
+        ProductId productId,
+        CancellationToken cancellationToken)
+    {
+        return await context.ProductReviews
+            .AsNoTracking()
+            .AnyAsync(r => r.ProductId == productId, cancellationToken);
+    }
 }
