@@ -1,7 +1,7 @@
 ﻿using Application.Common.Interfaces.Queries;
 using Application.Common.Interfaces.Repositories;
-using Domain.Categories;
 using Domain.Products;
+using Infrastructure.Persistence.Extensions;
 using LanguageExt;
 using Microsoft.EntityFrameworkCore;
 
@@ -64,47 +64,16 @@ public class ProductRepository(ApplicationDbContext context) : IProductRepositor
         string? brand,
         CancellationToken cancellationToken)
     {
-        var query = context.Products
+        return await context.Products
+            .AsNoTracking()
             .Include(x => x.Images)
             .Include(x => x.Categories)!
-                .ThenInclude(x => x.Category)
+            .ThenInclude(x => x.Category)
             .Include(x => x.Reviews)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-        {
-            var lowerTerm = searchTerm.ToLower();
-            query = query.Where(x => 
-                x.Name.ToLower().Contains(lowerTerm) || 
-                x.Description.ToLower().Contains(lowerTerm) ||
-                (x.Brand != null && x.Brand.ToLower().Contains(lowerTerm)) ||
-                (x.Model != null && x.Model.ToLower().Contains(lowerTerm)));
-        }
-
-        if (categoryId.HasValue)
-        {
-            var categoryIdObj = new CategoryId(categoryId.Value);
-            query = query.Where(p => p.Categories != null && p.Categories.Any(c => c.CategoryId == categoryIdObj));
-        }
-
-        if (minPrice.HasValue)
-        {
-            query = query.Where(x => x.Price >= minPrice.Value);
-        }
-
-        if (maxPrice.HasValue)
-        {
-            query = query.Where(x => x.Price <= maxPrice.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(brand))
-        {
-            var lowerBrand = brand.ToLower();
-            query = query.Where(x => x.Brand != null && x.Brand.ToLower() == lowerBrand);
-        }
-
-        return await query
+            .WithSearchTerm(searchTerm)
+            .InCategory(categoryId)
+            .WithPriceRange(minPrice, maxPrice)
+            .WithBrand(brand)
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
     }

@@ -2,6 +2,8 @@
 using Api.Modules.Errors;
 using Application.Common.Interfaces.Queries;
 using Application.Products.Commands;
+using Application.Products.Queries;
+using Application.Products.Queries.SearchProducts;
 using Domain.Products;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -31,14 +33,14 @@ public class ProductsController(ISender sender, IProductQueries productQueries) 
         [FromQuery] string? brand,
         CancellationToken cancellationToken)
     {
-        var products = await productQueries.SearchAsync(
-            searchTerm,
-            categoryId,
-            minPrice,
-            maxPrice,
-            brand,
-            cancellationToken);
-
+        var query = new SearchProductsQuery(
+            searchTerm, 
+            categoryId, 
+            minPrice, 
+            maxPrice, 
+            brand
+        );
+        var products = await sender.Send(query, cancellationToken);
         return products.Select(ProductDto.FromDomainModel).ToList();
     }
 
