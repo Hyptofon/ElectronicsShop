@@ -45,8 +45,7 @@ public class RegisterCommandHandler(
             if (!result.Succeeded)
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return new UnhandledAuthenticationException(
-                    new InvalidOperationException($"Failed to create user: {errors}"));
+                return new UserCreationException(errors);
             }
 
             await userManager.AddToRoleAsync(user, ApplicationRole.User);

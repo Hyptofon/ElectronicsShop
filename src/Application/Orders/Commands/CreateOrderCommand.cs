@@ -60,15 +60,13 @@ public class CreateOrderCommandHandler(
                 var productOption = await productRepository.GetByIdAsync(
                     cartItem.ProductId,
                     cancellationToken);
+                
+                var product = productOption.IfNoneUnsafe((Domain.Products.Product)null!);
 
-                if (productOption.IsNone)
+                if (product is null)
                 {
                     return new ProductNotFoundForOrderException(cartItem.ProductId.Value);
                 }
-
-                var product = productOption.Match(
-                    p => p,
-                    () => throw new InvalidOperationException("This should never happen"));
 
                 if (product.StockQuantity < cartItem.Quantity)
                 {

@@ -33,15 +33,13 @@ public static class OrderData
     public static UpdateOrderStatusDto CreateUpdateOrderStatusDto(string status) =>
         new(status);
     
-    // Додай цей метод, щоб не створювати список айтемів вручну в кожному тесті
     public static Order CreateOrderWithOneItem(Guid userId, Guid productId, int quantity = 1)
     {
         var orderId = OrderId.New();
         var items = new List<OrderItem>
         {
-            CreateTestOrderItem(orderId, new ProductId(productId)) // Використовуємо існуючий метод
+            CreateTestOrderItem(orderId, new ProductId(productId))
         };
-        // Тут ми трохи хардкодимо створення, бо основний метод приймає List
         return CreateTestOrder(userId, items); 
     }
 

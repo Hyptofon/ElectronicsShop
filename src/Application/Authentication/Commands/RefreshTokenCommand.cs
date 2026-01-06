@@ -110,7 +110,7 @@ public class RefreshTokenCommandHandler(
         }
         
         var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-        return new UnhandledAuthenticationException(
-            new InvalidOperationException($"Failed to refresh token: {errors}"));
+        
+        return new TokenRefreshFailedException(errors);
     }
 }

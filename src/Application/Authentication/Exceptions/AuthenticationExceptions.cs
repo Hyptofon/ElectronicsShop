@@ -22,3 +22,6 @@ public class UnhandledAuthenticationException(Exception? innerException)
     : AuthenticationException("Unexpected error occurred during authentication", innerException);
 public class TokenRefreshFailedException(string errors)
     : AuthenticationException($"Failed to refresh token: {errors}");
+
+public class UserCreationException(string errors)
+    : AuthenticationException($"Failed to create user: {errors}");

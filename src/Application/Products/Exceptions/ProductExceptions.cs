@@ -28,6 +28,7 @@ public class UnhandledProductException(ProductId productId, Exception? innerExce
     
 public class ProductImageNotFoundException(ProductImageId imageId)
     : ProductException(ProductId.Empty(), $"Product image not found under id {imageId.Value}");
+
 public class ProductCannotBeDeletedDueToOrdersException(ProductId productId)
     : ProductException(productId, $"Product {productId} cannot be deleted because it is referenced in existing orders");
 
@@ -36,3 +37,5 @@ public class ProductCannotBeDeletedDueToCartsException(ProductId productId)
 
 public class ProductCannotBeDeletedDueToReviewsException(ProductId productId)
     : ProductException(productId, $"Product {productId} cannot be deleted because it has associated product reviews");
+public class ProductNotFoundAfterCreationException(ProductId productId)
+    : ProductException(productId, $"Product {productId} was created but could not be retrieved from database");

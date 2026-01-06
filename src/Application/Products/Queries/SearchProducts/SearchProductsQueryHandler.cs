@@ -1,5 +1,4 @@
-﻿// Шлях: src/Application/Products/Queries/SearchProducts/SearchProductsQueryHandler.cs
-using Application.Common.Interfaces.Queries;
+﻿using Application.Common.Interfaces.Queries;
 using Domain.Products;
 using MediatR;
 

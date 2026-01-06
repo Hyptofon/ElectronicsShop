@@ -69,7 +69,7 @@ public class CreateProductCommandHandler(
 
             return createdProductOption.Match<Either<ProductException, Product>>(
                 p => p, 
-                () => new UnhandledProductException(product.Id, new InvalidOperationException("Product not found after creation")) 
+                () => new ProductNotFoundAfterCreationException(product.Id) 
             );
         }
         catch (Exception exception)
